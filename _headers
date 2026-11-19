@@ -1,0 +1,20 @@
+# _headers — read automatically by Cloudflare Pages and Netlify (guide, chapter 6)
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# Cache 3D models and textures for 1 year — they do not change between visits
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Cache the Three.js vendor files — they never change
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Never cache HTML, so visitors always get your latest updates instantly
+/*.html
+  Cache-Control: no-cache, no-store, must-revalidate
+/
+  Cache-Control: no-cache, no-store, must-revalidate

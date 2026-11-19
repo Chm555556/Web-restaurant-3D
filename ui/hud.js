@@ -1,0 +1,148 @@
+// ui/hud.js — the 2D HTML layer over the 3D canvas (guide: "UI Design — The 2D Layer on Top of 3D").
+import { CONFIG } from '../config.js';
+import { colliders } from '../systems/collision.js';
+
+const $ = (id) => document.getElementById(id);
+
+const MENU = [
+  ['Breakfast · 7–11 am', [['Masala omelette', 'Tomato, onion, green chilli, toast', 320], ['Coconut pancakes', 'Palm jaggery syrup, banana', 290], ['Fresh fruit bowl', 'Papaya, pineapple, mango', 240]]],
+  ['Mains · 12–11 pm', [['Goan prawn curry', 'Coconut, kokum, red rice', 640], ['Grilled sea bass', 'Lime butter, garden greens', 720], ['Paneer tikka platter', 'Mint chutney, pickled onion', 480], ['Wood-fired margherita', 'Buffalo mozzarella, basil', 520]]],
+  ['Pool bar', [['Virgin mojito', 'Mint, lime, soda', 210], ['Tender coconut cooler', 'Served in the shell', 180], ['Mango lassi', 'Alphonso mango, cardamom', 190]]],
+];
+
+export function createHUD() {
+  const hud = $('hud');
+  const toastEl = $('toast');
+  let toastTimer = 0;
+  const api = {
+    showIntroProgress(p, text) {
+      $('bar').style.width = (p * 100).toFixed(0) + '%';
+      $('bar').parentElement.setAttribute('aria-valuenow', Math.round(p * 100));
+      $('progress-text').textContent = text ?? `Loading the resort… ${Math.round(p * 100)}%`;
+    },
+    ready(onPick) {
+      api.showIntroProgress(1, 'Ready. Choose who you want to be.');
+      document.querySelectorAll('.avatar').forEach((b) => { b.disabled = false; b.onclick = () => onPick(b.dataset.kind); });
+      document.querySelector('.avatar').focus();
+    },
+    start() { $('intro').classList.add('gone'); hud.hidden = false; setTimeout(() => { $('intro').hidden = true; }, 800); },
+    setZone(z) {
+      $('zone-name').textContent = z ? z.name : 'Resort Gardens';
+      $('zone-desc').textContent = z ? z.desc : 'Palm gardens around the building. The pool deck is round the back.';
+      document.querySelectorAll('#travel-list button').forEach((b) => b.classList.toggle('here', z && b.dataset.zone === z.id));
+    },
+    buildTravel(onGo) {
+      const list = $('travel-list');
+      CONFIG.travel.forEach((id, i) => {
+        const z = CONFIG.zones.find((q) => q.id === id);
+        const b = document.createElement('button');
+        b.dataset.zone = id;
+        b.innerHTML = `<i style="background:${z.color}"></i>${z.name.split(' ·')[0]}<kbd>${i + 1}</kbd>`;
+        b.onclick = () => onGo(z);
+        list.appendChild(b);
+      });
+    },
+    prompt(text) {
+      const p = $('prompt');
+      if (!text) { p.hidden = true; return; }
+      p.hidden = false; p.innerHTML = `<kbd>E</kbd><span>${text}</span>`;
+    },
+    toast(msg, secs = 3) {
+      toastEl.textContent = msg; toastEl.classList.remove('out');
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.add('out'), secs * 1000);
+    },
+    fade(mid) {
+      const f = $('fade'); f.classList.add('on');
+      setTimeout(() => { mid(); setTimeout(() => f.classList.remove('on'), 120); }, 360);
+    },
+    showCharacter(npc, onTalk) {
+      const p = $('panel');
+      p.hidden = false;
+      p.innerHTML = `<button class="close" aria-label="Close">✕</button>
+        <div class="eyebrow">${zoneName(npc.zone)}</div>
+        <h3>${npc.name}</h3><div class="role">${npc.role}</div>
+        <div class="row"><span>Right now</span><span class="state" id="panel-state">${npc.activity}</span></div>
+        ${npc.state ? `<div class="row"><span>State machine</span><span id="panel-fsm" style="font-variant-numeric:tabular-nums;font-weight:700">${npc.state}</span></div>` : ''}
+        <div class="row"><span>Model</span><span>${{ xbot: 'X-Bot rig', michelle: 'Michelle rig', soldier: 'Soldier rig', robot: 'Robot rig' }[npc.ch.kind]}</span></div>
+        <button class="primary" id="panel-talk">Walk over and say hello</button>`;
+      p.querySelector('.close').onclick = api.closePanel;
+      $('panel-talk').onclick = () => onTalk(npc);
+      api.panelNPC = npc;
+    },
+    refreshPanel() {
+      const n = api.panelNPC; if (!n) return;
+      const s = $('panel-state'); if (s) s.textContent = n.activity;
+      const f = $('panel-fsm'); if (f) f.textContent = n.state;
+    },
+    showMenu() {
+      const p = $('panel'); p.hidden = false; api.panelNPC = null;
+      p.innerHTML = `<button class="close" aria-label="Close">✕</button><div class="eyebrow">Café Azure</div><h3>Today's menu</h3>
+        <div class="menu-list">${MENU.map(([h, items]) => `<h4>${h}</h4>${items.map(([n, d, pr]) => `<div><span>${n}<small>${d}</small></span><b>₹${pr}</b></div>`).join('')}`).join('')}</div>`;
+      p.querySelector('.close').onclick = api.closePanel;
+    },
+    closePanel() { $('panel').hidden = true; api.panelNPC = null; },
+    showEscort(options, onPick) {
+      const e = $('escort'); e.hidden = false;
+      e.innerHTML = `<div class="eyebrow">Priya can walk you to</div><div class="opts">${options.map((o, i) => `<button data-i="${i}">${o.label}</button>`).join('')}</div><button class="cancel">Not now</button>`;
+      e.querySelectorAll('.opts button').forEach((b) => b.onclick = () => { e.hidden = true; onPick(options[+b.dataset.i]); });
+      e.querySelector('.cancel').onclick = () => { e.hidden = true; };
+      e.querySelector('.opts button').focus();
+    },
+    escortOpen() { return !$('escort').hidden; },
+    closeEscort() { $('escort').hidden = true; },
+    setFPS(f) { $('fps').textContent = `${Math.round(f)} fps`; },
+  };
+  function zoneName(id) { return CONFIG.zones.find((z) => z.id === id)?.name || 'Azure Bay'; }
+
+  // ---------- minimap ----------
+  const cv = $('minimap'), g = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const X0 = -46, X1 = 46, Z0 = -76, Z1 = 54;          // world window (north up)
+  const sx = (x) => (x - X0) / (X1 - X0) * W, sz = (z) => (z - Z0) / (Z1 - Z0) * H;
+  let base = null;
+  function drawBase() {
+    base = document.createElement('canvas'); base.width = W; base.height = H;
+    const b = base.getContext('2d');
+    b.fillStyle = '#21452f'; b.fillRect(0, 0, W, H);
+    b.fillStyle = '#e5d3a3'; b.fillRect(0, sz(-72.7), W, sz(-62) - sz(-72.7));
+    b.fillStyle = '#1e6f8a'; b.fillRect(0, 0, W, sz(-72.7));
+    b.fillStyle = '#3d4247'; b.fillRect(0, sz(38), W, sz(48) - sz(38));
+    b.fillStyle = '#9f988d'; b.fillRect(0, sz(34), W, sz(38) - sz(34)); b.fillRect(0, sz(48), W, sz(52) - sz(48));
+    for (const z of CONFIG.zones) {
+      if (['street', 'beach'].includes(z.id)) continue;
+      const [x0, z0, x1, z1] = z.rect;
+      b.fillStyle = z.color + (z.id === 'pool' || z.id === 'poolbar' ? '55' : 'cc');
+      b.fillRect(sx(x0), sz(z0), sx(x1) - sx(x0), sz(z1) - sz(z0));
+    }
+    b.fillStyle = '#d8ccb4'; b.fillRect(sx(-40), sz(-62), sx(40) - sx(-40), sz(-20.4) - sz(-62));
+    b.fillStyle = '#3fc6e0'; b.fillRect(sx(-14), sz(-46), sx(14) - sx(-14), sz(-30) - sz(-46));
+    for (const r of [['lobby'], ['cafe'], ['kitchen'], ['rooms']]) {
+      const z = CONFIG.zones.find((q) => q.id === r[0]); const [x0, z0, x1, z1] = z.rect;
+      b.fillStyle = z.color; b.fillRect(sx(x0), sz(z0), sx(x1) - sx(x0), sz(z1) - sz(z0));
+    }
+    b.fillStyle = '#132a30';
+    for (const c of colliders) {
+      if (!c.cam || c.minY > 0.5) continue;
+      if (c.maxX - c.minX > 120 || c.maxZ - c.minZ > 120) continue;
+      b.fillRect(sx(c.minX), sz(c.minZ), Math.max(1.5, sx(c.maxX) - sx(c.minX)), Math.max(1.5, sz(c.maxZ) - sz(c.minZ)));
+    }
+    b.font = '600 15px Manrope, sans-serif'; b.fillStyle = 'rgba(255,255,255,0.85)'; b.textAlign = 'center';
+    for (const [t, x, z] of [['Café', -21, 0], ['Lobby', 0, 1], ['Rooms', 23, 11], ['Pool', 0, -38], ['Bar', 25, -30], ['Beach', 0, -66], ['Street', 20, 43]]) b.fillText(t, sx(x), sz(z) + 5);
+  }
+  api.drawMap = (player, npcs) => {
+    if (!base) drawBase();
+    g.drawImage(base, 0, 0);
+    for (const n of npcs) {
+      g.fillStyle = n.core ? '#e3b866' : 'rgba(243,230,207,0.75)';
+      g.beginPath(); g.arc(sx(n.x), sz(n.z), 2.6, 0, Math.PI * 2); g.fill();
+    }
+    if (player) {
+      const x = sx(player.x), y = sz(player.z), a = player.yaw;
+      g.save(); g.translate(x, y); g.rotate(-a + Math.PI);
+      g.fillStyle = '#4fd1c5'; g.strokeStyle = '#06201d'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(0, -11); g.lineTo(7, 8); g.lineTo(0, 4); g.lineTo(-7, 8); g.closePath(); g.fill(); g.stroke();
+      g.restore();
+    }
+  };
+  return api;
+}
