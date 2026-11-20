@@ -17,6 +17,8 @@ import { createTraffic } from './systems/traffic.js';
 import { detectQuality, saveQuality, webglAvailable, FPSMeter, pauseWhenHidden } from './systems/performance.js';
 import { rayCast } from './systems/collision.js';
 import { createHUD } from './ui/hud.js';
+import { createChat } from './ui/chat.js';
+import { createInteractions } from './systems/interact.js';
 
 if (!webglAvailable()) {
   document.getElementById('error').hidden = false;
@@ -67,6 +69,20 @@ env.onNight((n) => {
 const followCam = new FollowCamera(camera, renderer.domElement);
 let player = null, cast = null, started = false;
 
+// everything usable (seats, beds, TVs, laptops…) and typed chat with anyone
+const interact = createInteractions({ scene, furn, hud, getPlayer: () => player, getNpcs: () => npcsList(), toggleNight: () => toggleNight(), isNight: () => env.isNight() });
+furn.anchors.rooms[101].tv.setPower(true);   // Neha is watching the cricket
+const chat = createChat({
+  getPlayer: () => player,
+  getCtx: (npc) => ({ night: env.isNight(), canEscort: npc === cast?.priya && ['TYPING', 'IDLE', 'GREETING'].includes(npc.state) }),
+  onAction(act, npc) {
+    if (act.type === 'escort') { chat.close(); cast.priya.startEscort(act.arg); }
+    else if (act.type === 'travel') { chat.close(); travelTo(CONFIG.zones.find((z) => z.id === act.arg)); }
+    else if (act.type === 'menu') hud.showMenu(/waiter|waitress|buffet|chef|bartender|server|concierge|receptionist/i.test(npc.role) ? { order: (item) => { interact.order(item); npc.ch.say(`One ${item.name.toLowerCase()}, coming up!`, 3); } } : {});
+    else if (act.type === 'order') { interact.order(act.arg); npc.ch.say('Coming right up!', 3); }
+  },
+});
+
 // ---------- load characters with a progress bar ----------
 const manager = new THREE.LoadingManager();
 const fileProgress = new Map();
@@ -76,13 +92,13 @@ THREE.FileLoader.prototype.load = function (url, onLoad, onProgress, onError) {
     if (e.lengthComputable) {
       fileProgress.set(url, e.loaded / e.total);
       const vals = [...fileProgress.values()];
-      hud.showIntroProgress(0.08 + 0.82 * vals.reduce((a, b) => a + b, 0) / 4, `Loading people… ${Math.round(100 * vals.reduce((a, b) => a + b, 0) / 4)}%`);
+      hud.showIntroProgress(0.08 + 0.82 * vals.reduce((a, b) => a + b, 0) / 2, `Loading people… ${Math.round(100 * vals.reduce((a, b) => a + b, 0) / 2)}%`);
     }
     onProgress && onProgress(e);
   }, onError);
 };
 
-loadCharacters(manager).then(() => {
+loadCharacters(manager, ['xbot', 'michelle']).then(() => {
   hud.showIntroProgress(0.95, 'Waking up the staff…');
   cast = createCast(scene, furn.anchors, profile, hud);
   hud.buildTravel(travelTo);
@@ -95,8 +111,10 @@ loadCharacters(manager).then(() => {
 });
 
 function startAs(kind) {
-  player = new Player(scene, kind, kind === 'xbot' ? 'Alex' : 'Maya');
+  player = new Player(scene, kind, kind === 'xbot' ? 'Rahul' : 'Aditi');
   player.enabled = true;
+  player.onStand = () => interact.onStand();
+  hud.setTravel(travelTo);
   followCam.pos.copy(camera.position);
   hud.start();
   started = true;
@@ -118,14 +136,14 @@ function travelTo(z) {
   });
 }
 
-function interact() {
-  if (!player) return;
+function interactKey() {
+  if (!player || chat.isOpen()) return;
   if (hud.escortOpen()) return;
   if (nearest?.hotspot === 'menu') { hud.showMenu(); return; }
   if (nearest?.npc) {
-    nearest.npc.talk(player);
-    if (!nearest.npc.talkAt) player.yaw = Math.atan2(nearest.npc.x - player.x, nearest.npc.z - player.z);
-  }
+    chat.open(nearest.npc);
+    if (!nearest.npc.talkAt && player.mode === 'free') player.yaw = Math.atan2(nearest.npc.x - player.x, nearest.npc.z - player.z);
+  } else if (nearest?.item) interact.use(nearest.item);
 }
 
 function talkFromPanel(npc) {
@@ -136,14 +154,16 @@ function talkFromPanel(npc) {
     if (npc.ch.kind === 'robot' || npc.zone === 'pool') { x = npc.x + Math.cos(a) * 1.8; z = npc.z + Math.sin(a) * 1.8; }
     player.teleport(x, z, Math.atan2(npc.x - x, npc.z - z));
     followCam.orbit = 0; followCam.update(0, player, true);
-    npc.talk(player);
+    chat.open(npc);
   });
 }
 
 addEventListener('keydown', (e) => {
   if (!started) return;
+  if (e.target.closest?.('input, textarea, select')) return;   // typing in the chat or notes
   const k = e.key.toLowerCase();
-  if (k === 'e') interact();
+  if (k === 'e') interactKey();
+  else if (k === 't' && nearest?.npc) { e.preventDefault(); interactKey(); }
   else if (k === 'c') toggleView();
   else if (k === 'n') toggleNight();
   else if (k === 'l') toggleLabels();
@@ -151,7 +171,7 @@ addEventListener('keydown', (e) => {
   else if (k === 'r') followCam.reset();
   else if (k === '+' || k === '=') followCam.zoom(0.88);
   else if (k === '-') followCam.zoom(1.12);
-  else if (k === 'escape') { hud.closePanel(); hud.closeEscort(); }
+  else if (k === 'escape') { if (!interact.closeDevice()) { chat.close(); hud.closePanel(); hud.closeEscort(); } }
   else if (/^[1-8]$/.test(k)) travelTo(CONFIG.zones.find((z) => z.id === CONFIG.travel[+k - 1]));
 });
 
@@ -187,7 +207,7 @@ sel.onchange = () => {
     else { const u = new URL(location.href); u.searchParams.set('quality', sel.value); location.replace(u.toString()); }
   }, 500);
 };
-document.getElementById('act').onclick = interact;
+document.getElementById('act').onclick = interactKey;
 attachJoystickWhenReady();
 function attachJoystickWhenReady() {
   const tryAttach = () => { if (player) attachJoystick(document.getElementById('joy'), document.getElementById('knob'), player); else setTimeout(tryAttach, 300); };
@@ -227,6 +247,8 @@ function simulate(dt) {
 
   const npcs = npcsList();
   if (player) player.update(dt, npcs.filter((n) => !n.ch.lie && n.ch.root.position.y > -0.2));
+  interact.update(dt);
+  chat.update();
 
   // NPC behaviour + animation (far characters animate at a lower rate)
   const ctx = { player: player || { x: 0, z: 60, yaw: 0 }, blockers: player ? [player] : [] };
@@ -257,18 +279,29 @@ function simulate(dt) {
     // zone label
     const z = zoneAt(player.x, player.z);
     if (z !== lastZone) { lastZone = z; hud.setZone(z); }
-    // nearest interactive thing in front of the player
-    nearest = null; let best = 2.6;
+    // nearest interactive thing: a person to chat with, the menu stand, or something to use
+    nearest = null; let best = player.mode === 'free' ? 2.6 : 3.2;
     for (const n of npcs) {
-      if (n.ch.root.position.y < -0.2) continue;
+      if (n.ch.root.position.y < -0.6) continue;
       const tp = n.talkPos();
       const d = Math.hypot(tp.x - player.x, tp.z - player.z);
-      if (d < best) { best = d; nearest = { npc: n }; }
+      if (d < best && d > 0.05) {
+        // only people you can actually see (not through a wall)
+        _v.set(player.x, 1.2, player.z); _d.set(tp.x - player.x, 0, tp.z - player.z).normalize();
+        if (rayCast(_v, _d, d) < d - 0.05) continue;
+        best = d; nearest = { npc: n };
+      }
     }
     for (const h of furn.anchors.hotspots) { h.getWorldPosition(_v); const d = Math.hypot(_v.x - player.x, _v.z - player.z); if (d < Math.min(best, 2.2)) { best = d; nearest = { hotspot: h.userData.hotspot }; } }
-    if (hud.escortOpen()) hud.prompt(null);
+    if (player.mode === 'free') {
+      const it = interact.nearest(player);
+      if (it && (!nearest || it.d < 0.9 || it.d < best * 0.6)) nearest = { item: it.item };
+    }
+    if (hud.escortOpen() || chat.isOpen()) hud.prompt(null);
     else if (nearest?.hotspot === 'menu') hud.prompt('Read the Café Azure menu');
-    else if (nearest?.npc) hud.prompt(nearest.npc instanceof Object && nearest.npc.state && ['TYPING', 'IDLE', 'GREETING'].includes(nearest.npc.state) ? `Ask ${nearest.npc.name} to escort you` : `Talk to ${nearest.npc.name} · ${nearest.npc.role}`);
+    else if (nearest?.npc) hud.prompt(`Chat with ${nearest.npc.name} · ${nearest.npc.role}` + (player.mode !== 'free' ? '<em>↑ stand up</em>' : ''));
+    else if (nearest?.item) hud.prompt(nearest.item.label);
+    else if (player.mode !== 'free') hud.prompt('Stand up', '↑');
     else hud.prompt(null);
     if (frame % 2 === 0) hud.drawMap(player, npcs);
     panelTimer += dt; if (panelTimer > 0.4) { panelTimer = 0; hud.refreshPanel(); }
@@ -298,7 +331,7 @@ renderer.setAnimationLoop(loop);
 pauseWhenHidden(renderer, loop, clock);
 
 // expose a tiny debug handle (handy in DevTools)
-window.azureBay = { scene, renderer, camera, get player() { return player; }, get npcs() { return npcsList(); }, travelTo: (id) => travelTo(CONFIG.zones.find((z) => z.id === id)), info: () => renderer.info.render,
+window.azureBay = { scene, renderer, camera, anchors: furn.anchors, interact, chat, get player() { return player; }, get npcs() { return npcsList(); }, travelTo: (id) => travelTo(CONFIG.zones.find((z) => z.id === id)), info: () => renderer.info.render,
   /** fast-forward the simulation (testing on slow machines): step(seconds) */
   step(seconds) { for (let s = 0; s < seconds; s += 0.05) simulate(0.05); },
   toggleNight };

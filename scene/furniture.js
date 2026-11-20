@@ -17,7 +17,7 @@ export function buildFurniture(scene, profile) {
   const dyn = new THREE.Group(); dyn.name = 'furniture-dynamic';
   scene.add(group, dyn);
   const M = (k) => getMat(k);
-  const anchors = { cafeSeats: [], sofaSeats: [], barStools: [], loungers: [], hotspots: [], lights: [] };
+  const anchors = { cafeSeats: [], sofaSeats: [], barStools: [], loungers: [], hotspots: [], lights: [], benchSeats: [], tvs: [], laptops: [] };
 
   // ---------- shared instanced geometries ----------
   const chairFrame = compose([
@@ -221,8 +221,22 @@ export function buildFurniture(scene, profile) {
       wardMs.push(trs(b - 0.45, 0, side * 4.2)); addBox(b - 0.75, b - 0.15, side * 4.2 - 0.8, side * 4.2 + 0.8);
       armMs.push(trs(cx - 2.2, 0, side * 16.5, side < 0 ? Math.PI * 0.85 : Math.PI * 0.15)); addFootprint(cx - 2.2, side * 16.5, 0.9, 0.9, { maxY: 0.7 });
       rugMs.push(trs(ax + 3.4, 0, bz));
+      const armYaw = side < 0 ? Math.PI * 0.85 : Math.PI * 0.15;
+      // laptop on the desk, screen turned toward the chair
+      {
+        const lg = new THREE.Group(); lg.position.set(cx + 0.2, 0.785, wz - side * 0.06); lg.rotation.y = side < 0 ? 0 : Math.PI;
+        const base = new THREE.Mesh(BoxG(0.34, 0.018, 0.24), M('darkSteel')); base.position.y = 0.009;
+        const lid = new THREE.Group(); lid.position.set(0, 0.018, -0.12); lid.rotation.x = -0.28;
+        const back = new THREE.Mesh(BoxG(0.34, 0.23, 0.01), M('darkSteel')); back.position.y = 0.115;
+        const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.31, 0.2), M('screen')); scr.position.set(0, 0.115, 0.006);
+        lid.add(back, scr); lg.add(base, lid); lg.traverse((o) => { o.castShadow = true; });
+        group.add(lg);
+        anchors.laptops.push({ room: n, x: cx + 0.2, z: wz - side * 0.75 });
+      }
       anchors.rooms[n] = {
         bedEdge: { x: ax + 1.95, z: bz, yaw: Math.PI / 2, seatY: 0.62 },
+        bedLie: { x: ax + 1.1, z: bz - 0.45, yaw: Math.PI / 2, pitch: -Math.PI / 2 + 0.12, h: 0.8, off: 0.95 },
+        armchair: { x: cx - 2.2 + Math.sin(armYaw) * 0.06, z: side * 16.5 + Math.cos(armYaw) * 0.06, yaw: armYaw, seatY: 0.44 },
         desk: { x: cx + 0.2, z: wz - side * 0.75, yaw: side < 0 ? Math.PI : 0, seatY: 0.5 },
         door: { x: doorX(i), z: side * 2.0 },
         inside: { x: doorX(i), z: side * 4 },
@@ -241,11 +255,20 @@ export function buildFurniture(scene, profile) {
   instanced(group, [{ geometry: wardrobeG, material: M('lightWood') }], wardMs);
   instanced(group, [{ geometry: armchairG, material: M('fabricCoral') }], armMs);
   instanced(group, [{ geometry: rugG, material: M('fabricCream') }], rugMs, { cast: false });
-  // animated TV screens (shared material)
-  const tvCanvas = document.createElement('canvas'); tvCanvas.width = 256; tvCanvas.height = 144;
-  const tvTex = new THREE.CanvasTexture(tvCanvas); tvTex.colorSpace = THREE.SRGBColorSpace;
-  const tvMat = new THREE.MeshBasicMaterial({ map: tvTex });
-  roomXs.forEach(([a, b]) => { for (const side of [-1, 1]) { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.66), tvMat); s.position.set(b - 0.235, 1.45, side * 11); s.rotation.y = -Math.PI / 2; dyn.add(s); } });
+  // TV screens: every room has its own set with power and channel (see drawChannel below)
+  const tvOff = new THREE.MeshStandardMaterial({ color: 0x08090b, roughness: 0.18, metalness: 0.4 });
+  roomXs.forEach(([a, b], i) => {
+    for (const side of [-1, 1]) {
+      const n = side < 0 ? 101 + i : 104 + i;
+      const cv = document.createElement('canvas'); cv.width = 256; cv.height = 144;
+      const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.66), tvOff);
+      mesh.position.set(b - 0.235, 1.45, side * 11); mesh.rotation.y = -Math.PI / 2; dyn.add(mesh);
+      const tv = { room: n, x: b - 0.55, z: side * 11, mesh, cv, tex, on: false, channel: 0, mat: new THREE.MeshBasicMaterial({ map: tex }) };
+      tv.setPower = (on) => { tv.on = on; mesh.material = on ? tv.mat : tvOff; };
+      anchors.tvs.push(tv); anchors.rooms[n].tv = tv;
+    }
+  });
 
   // ---------- POOL DECK ----------
   const loungerFrame = compose([[BoxG(0.7, 0.08, 1.4), trs(0, 0.35, 0.3)], [BoxG(0.7, 0.08, 0.8), trs(0, 0.55, -0.68, 0, 1, 0.6)], ...[[-0.3, 0.9], [0.3, 0.9], [-0.3, -0.5], [0.3, -0.5]].map(([x, z]) => [BoxG(0.05, 0.33, 0.05), trs(x, 0.16, z)])]);
@@ -330,6 +353,25 @@ export function buildFurniture(scene, profile) {
   instanced(group, [{ geometry: benchG, material: M('lightWood') }], benches);
   for (const [x, z] of [[-6, 30.5], [6, 30.5], [-22, -24.5], [-16, 23.5]]) addFootprint(x, z, 1.9, 0.6, { maxY: 0.8 });
   anchors.benches = [{ x: -6, z: 30.55, yaw: 0, seatY: 0.48 }, { x: 6, z: 30.55, yaw: 0, seatY: 0.48 }];
+  for (const [x, z, yaw] of [[-6, 30.5, 0], [6, 30.5, 0], [-22, -24.5, Math.PI], [-16, 23.5, Math.PI]]) for (const dx of [-0.5, 0.5]) {
+    anchors.benchSeats.push({ x: x + dx * Math.cos(yaw), z: z + Math.cos(yaw) * 0.05, yaw, seatY: 0.48 });
+  }
+
+  // guest computer in the lobby, against the east wall
+  {
+    boxFromTo(group, M('lightWood'), 8.95, 0.72, -9.3, 9.75, 0.77, -7.5);
+    for (const z of [-9.2, -7.6]) boxFromTo(group, M('lightWood'), 9.0, 0, z - 0.04, 9.7, 0.72, z + 0.04);
+    box(group, M('black'), 9.48, 1.08, -8.4, 0.04, 0.4, 0.62);
+    box(group, M('darkSteel'), 9.5, 0.84, -8.4, 0.12, 0.14, 0.06);
+    box(group, M('darkSteel'), 9.18, 0.78, -8.4, 0.16, 0.015, 0.45);
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(0.58, 0.36), M('screen')); s.position.set(9.455, 1.08, -8.4); s.rotation.y = -Math.PI / 2; dyn.add(s);
+    instanced(group, [{ geometry: chairFrame, material: M('darkWood') }, { geometry: chairCushion, material: M('fabricNavy') }], [trs(8.45, 0, -8.4, Math.PI / 2)]);
+    addBox(8.95, 9.75, -9.3, -7.5, { maxY: 0.8 });
+    const tex = signTexture('Guest computer', { w: 512, h: 96, bg: 'rgba(0,0,0,0)', fg: '#3a2b1c', font: '600 54px Manrope, sans-serif' });
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.26), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+    sign.position.set(9.74, 1.75, -8.4); sign.rotation.y = -Math.PI / 2; dyn.add(sign);
+    anchors.computer = { x: 8.45, z: -8.4, yaw: Math.PI / 2, seatY: 0.5 };
+  }
 
   // ---------- PLANTS (instanced) ----------
   const potG = compose([[CylG(0.32, 0.24, 0.6, 14), trs(0, 0.3, 0)]]);
@@ -360,17 +402,7 @@ export function buildFurniture(scene, profile) {
   return {
     group, dyn, anchors,
     update(t) {
-      // TV programme: a slowly changing gradient with a "news ticker"
-      const g = tvCanvas.getContext('2d');
-      const h = (t * 20) % 360;
-      const gr = g.createLinearGradient(0, 0, 256, 144);
-      gr.addColorStop(0, `hsl(${h},60%,45%)`); gr.addColorStop(1, `hsl(${(h + 80) % 360},60%,25%)`);
-      g.fillStyle = gr; g.fillRect(0, 0, 256, 144);
-      g.fillStyle = 'rgba(255,255,255,0.85)'; g.beginPath(); g.arc(128 + Math.sin(t) * 60, 60 + Math.cos(t * 0.7) * 20, 22, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#c0392b'; g.fillRect(0, 118, 256, 26);
-      g.fillStyle = '#fff'; g.font = 'bold 14px sans-serif';
-      g.fillText('AZURE BAY TV · Sunset cocktails at the pool bar from 6 pm · Live samba tonight', 256 - ((t * 40) % 760), 136);
-      tvTex.needsUpdate = true;
+      for (const tv of anchors.tvs) if (tv.on) { drawChannel(tv.cv.getContext('2d'), tv.channel, t); tv.tex.needsUpdate = true; }
     },
     setNight(n) {
       M('lampGlow').emissiveIntensity = 1.0 + n * 2.2;
@@ -378,4 +410,56 @@ export function buildFurniture(scene, profile) {
     },
     bulbs, discs,
   };
+}
+
+// ---------- TV channels (drawn into each room's 256×144 canvas) ----------
+export const CHANNELS = ['Cricket Live', 'Bollywood Music', 'India News', 'Nature HD', 'Azure Bay TV'];
+function drawChannel(g, ch, t) {
+  const W = 256, H = 144;
+  g.save();
+  if (ch === 0) {            // cricket: green field, pitch, ball, scorecard
+    g.fillStyle = '#2f8f3a'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#3aa346'; for (let i = 0; i < 8; i++) g.fillRect(0, i * 18, W, 9);
+    g.fillStyle = '#d9c38f'; g.fillRect(108, 20, 40, 100);
+    g.fillStyle = '#fff'; g.fillRect(118, 26, 20, 2); g.fillRect(118, 112, 20, 2);
+    const bx = 128 + Math.sin(t * 2.2) * 8, by = 30 + ((t * 70) % 85);
+    g.fillStyle = '#c0392b'; g.beginPath(); g.arc(bx, by, 3, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(0,0,40,0.85)'; g.fillRect(0, 118, W, 26);
+    const runs = 186 + Math.floor(t / 7) % 60, balls = Math.floor(t / 3) % 6;
+    g.fillStyle = '#fff'; g.font = 'bold 13px sans-serif';
+    g.fillText(`IND ${runs}/3  (32.${balls} ov)   vs AUS`, 8, 136);
+    g.fillStyle = '#f1c40f'; g.fillText('LIVE', 214, 136);
+  } else if (ch === 1) {     // music: colourful bars + song title
+    const hue = (t * 30) % 360;
+    const gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, `hsl(${hue},70%,40%)`); gr.addColorStop(1, `hsl(${(hue + 120) % 360},70%,25%)`);
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 16; i++) { const h = 20 + Math.abs(Math.sin(t * 6 + i * 0.7)) * 70; g.fillStyle = `hsla(${(hue + i * 20) % 360},90%,65%,0.9)`; g.fillRect(10 + i * 15, 112 - h, 10, h); }
+    g.fillStyle = '#fff'; g.font = 'bold 15px sans-serif'; g.fillText('♪ Bollywood Hits — Non-stop', 10, 134);
+  } else if (ch === 2) {     // news: studio, anchor silhouette, ticker
+    g.fillStyle = '#12243f'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#1d3b66'; g.fillRect(150, 10, 96, 70);
+    g.fillStyle = '#e8eef7'; g.font = 'bold 11px sans-serif'; g.fillText('MONSOON', 162, 40); g.fillText('UPDATE', 168, 56);
+    g.fillStyle = '#c99a72'; g.beginPath(); g.arc(80, 52, 16, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#1b1b1b'; g.beginPath(); g.arc(80, 46, 17, Math.PI, 0); g.fill();
+    g.fillStyle = '#7a1f2b'; g.fillRect(56, 70, 48, 40);
+    g.fillStyle = '#c0392b'; g.fillRect(0, 116, W, 28);
+    g.fillStyle = '#fff'; g.font = 'bold 13px sans-serif';
+    g.fillText('INDIA NEWS · Sensex up 300 points · Goa tourism hits record high · Monsoon arrives in Kerala', W - ((t * 40) % 900), 135);
+  } else if (ch === 3) {     // nature: sea, sun, flying birds
+    const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#f6b36b'); gr.addColorStop(0.55, '#f08a5d'); gr.addColorStop(0.56, '#2a6f97'); gr.addColorStop(1, '#173f5f');
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#ffe39a'; g.beginPath(); g.arc(128, 80, 22, Math.PI, 0); g.fill();
+    g.strokeStyle = '#2b2b2b'; g.lineWidth = 1.5;
+    for (let i = 0; i < 4; i++) { const x = (t * 20 + i * 60) % (W + 40) - 20, y = 30 + i * 8 + Math.sin(t * 3 + i) * 3; g.beginPath(); g.moveTo(x - 6, y); g.quadraticCurveTo(x - 3, y - 4, x, y); g.quadraticCurveTo(x + 3, y - 4, x + 6, y); g.stroke(); }
+    g.fillStyle = '#fff'; g.font = 'bold 12px sans-serif'; g.fillText('Nature HD · Konkan Coast', 8, 136);
+  } else {                   // resort channel
+    const h = (t * 20) % 360;
+    const gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, `hsl(${h},55%,40%)`); gr.addColorStop(1, `hsl(${(h + 80) % 360},55%,22%)`);
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#f3e3c0'; g.font = '600 26px Georgia, serif'; g.fillText('AZURE BAY', 58, 64);
+    g.fillStyle = '#c0392b'; g.fillRect(0, 118, W, 26);
+    g.fillStyle = '#fff'; g.font = 'bold 13px sans-serif';
+    g.fillText('Yoga on the beach 7 am · Bollywood night at the pool stage 8 pm · Try the mango lassi!', W - ((t * 40) % 820), 136);
+  }
+  g.restore();
 }

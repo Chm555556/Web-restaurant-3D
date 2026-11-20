@@ -4,10 +4,13 @@ import * as THREE from 'three';
 import { Character } from './character.js';
 import { resolveCircle } from '../systems/collision.js';
 import { CONFIG } from '../config.js';
+import { dress } from './indian.js';
 
 export class Player {
   constructor(scene, kind, name) {
-    const outfit = kind === 'xbot' ? { body: 0x2a6fdb, joints: 0xf2c14e } : { tint: 0xffffff };
+    const outfit = kind === 'xbot'
+      ? dress.kurta({ main: 0xf4ecd8, bottom: 0xf4ecd8, vest: 0x1f3a68, skin: 'medium' })
+      : dress.anarkali({ main: 0xc62828, bottom: 0xf7e7c6, dupatta: 0xf7e7c6, hair: 'braid', skin: 'wheat' });
     this.ch = new Character(kind, { name, role: 'You', outfit, label: true });
     this.ch.label.element.classList.add('is-player');
     scene.add(this.ch.root);
@@ -19,6 +22,9 @@ export class Player {
     this.enabled = false;
     this.moving = 0;
     this.waveT = 0;
+    this.mode = 'free';        // free | seated | lying
+    this.seat = null;          // the anchor we are sitting or lying on
+    this.onStand = null;       // callback (set by systems/interact.js)
 
     const keyMap = (e) => {
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -30,6 +36,7 @@ export class Player {
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(k)) e.preventDefault();
       this.keys.add(k);
       if (k === ' ' && this.enabled && !e.repeat) this.wave();
+      if (this.mode !== 'free' && this.enabled && ['ArrowUp', 'ArrowDown', 'w', 's'].includes(k)) this.standUp();
     });
     addEventListener('keyup', (e) => this.keys.delete(keyMap(e)));
     addEventListener('blur', () => this.keys.clear());
@@ -38,13 +45,60 @@ export class Player {
 
   wave() { this.waveT = 2.2; this.ch.setPose('wave', 1); }
 
+  /** Sit on a seat anchor {x,z,yaw,seatY}, or lie down on one {x,z,yaw,pitch,h,off}. */
+  sitOn(a, lie = false) {
+    if (this.mode !== 'free') this.standUp(true);
+    this.seat = a; a.occupant = this;
+    this.mode = lie ? 'lying' : 'seated';
+    this.yaw = a.yaw;
+    this.ch.clearPoses();
+    if (lie) this.ch.lieOn(a); else this.ch.sitAt(a);
+    this.ch.play('idle', 0.2); this.ch.speed = 0;
+  }
+
+  /** Stand up and step to the nearest free spot beside the seat. */
+  standUp(quiet = false) {
+    const a = this.seat; if (!a) return;
+    a.occupant = null; this.seat = null;
+    const was = this.mode; this.mode = 'free';
+    this.ch.standUp(); this.ch.clearPoses();
+    const pos = this.ch.root.position, yaw = a.yaw;
+    const reach = was === 'lying' ? 1.25 : 0.62;
+    let best = null;
+    for (const ang of [0, Math.PI, Math.PI / 2, -Math.PI / 2, Math.PI / 4, -Math.PI / 4, Math.PI * 0.75, -Math.PI * 0.75]) {
+      for (const d of [reach, reach + 0.4]) {
+        const p = new THREE.Vector3(a.x + Math.sin(yaw + ang) * d, 0, a.z + Math.cos(yaw + ang) * d);
+        const q = resolveCircle(p.clone(), CONFIG.player.radius);
+        const moved = Math.hypot(q.x - p.x, q.z - p.z);
+        if (!best || moved < best.moved - 1e-3) best = { q, moved, ang };
+        if (moved < 0.01) break;
+      }
+      if (best && best.moved < 0.01) break;
+    }
+    pos.set(best.q.x, 0, best.q.z);
+    this.yaw = Math.atan2(pos.x - a.x, pos.z - a.z); this.ch.root.rotation.y = this.yaw;
+    if (!quiet && this.onStand) this.onStand(a, was);
+  }
+
   teleport(x, z, yaw) {
+    if (this.mode !== 'free') this.standUp();
     this.ch.root.position.set(x, 0, z);
     this.yaw = yaw; this.ch.root.rotation.y = yaw;
   }
 
   update(dt, others) {
     const P = CONFIG.player, k = this.keys;
+    if (this.mode !== 'free') {
+      // seated / lying: stay put until the player walks off
+      const go = this.enabled && (k.has('ArrowUp') || k.has('w') || k.has('ArrowDown') || k.has('s') || Math.abs(this.joy.y) > 0.5);
+      if (go) this.standUp();
+      else {
+        this.ch.speed = 0; this.moving = 0;
+        if (this.waveT > 0) { this.waveT -= dt; if (this.waveT <= 0) this.ch.setPose('wave', 0); }
+        this.ch.update(dt);
+        return;
+      }
+    }
     let fwd = 0, turn = 0;
     if (this.enabled) {
       if (k.has('ArrowUp') || k.has('w')) fwd += 1;

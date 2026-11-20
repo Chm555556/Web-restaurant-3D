@@ -4,11 +4,7 @@ import { colliders } from '../systems/collision.js';
 
 const $ = (id) => document.getElementById(id);
 
-const MENU = [
-  ['Breakfast · 7–11 am', [['Masala omelette', 'Tomato, onion, green chilli, toast', 320], ['Coconut pancakes', 'Palm jaggery syrup, banana', 290], ['Fresh fruit bowl', 'Papaya, pineapple, mango', 240]]],
-  ['Mains · 12–11 pm', [['Goan prawn curry', 'Coconut, kokum, red rice', 640], ['Grilled sea bass', 'Lime butter, garden greens', 720], ['Paneer tikka platter', 'Mint chutney, pickled onion', 480], ['Wood-fired margherita', 'Buffalo mozzarella, basil', 520]]],
-  ['Pool bar', [['Virgin mojito', 'Mint, lime, soda', 210], ['Tender coconut cooler', 'Served in the shell', 180], ['Mango lassi', 'Alphonso mango, cardamom', 190]]],
-];
+const MENU = CONFIG.menu;
 
 export function createHUD() {
   const hud = $('hud');
@@ -42,10 +38,12 @@ export function createHUD() {
         list.appendChild(b);
       });
     },
-    prompt(text) {
+    prompt(text, key = 'E') {
       const p = $('prompt');
-      if (!text) { p.hidden = true; return; }
-      p.hidden = false; p.innerHTML = `<kbd>E</kbd><span>${text}</span>`;
+      if (!text) { p.hidden = true; p._last = ''; return; }
+      const html = `<kbd>${key}</kbd><span>${text}</span>`;
+      if (p._last !== html) { p.innerHTML = html; p._last = html; }   // avoid re-layout every frame
+      p.hidden = false;
     },
     toast(msg, secs = 3) {
       toastEl.textContent = msg; toastEl.classList.remove('out');
@@ -63,10 +61,10 @@ export function createHUD() {
         <h3>${npc.name}</h3><div class="role">${npc.role}</div>
         <div class="row"><span>Right now</span><span class="state" id="panel-state">${npc.activity}</span></div>
         ${npc.state ? `<div class="row"><span>State machine</span><span id="panel-fsm" style="font-variant-numeric:tabular-nums;font-weight:700">${npc.state}</span></div>` : ''}
-        <div class="row"><span>Model</span><span>${{ xbot: 'X-Bot rig', michelle: 'Michelle rig', soldier: 'Soldier rig', robot: 'Robot rig' }[npc.ch.kind]}</span></div>
-        <button class="primary" id="panel-talk">Walk over and say hello</button>`;
+        <div class="row"><span>Wearing</span><span>${outfitName(npc.ch.outfit)}</span></div>
+        <button class="primary" id="panel-talk">Walk over and chat</button>`;
       p.querySelector('.close').onclick = api.closePanel;
-      $('panel-talk').onclick = () => onTalk(npc);
+      $('panel-talk').onclick = () => { api.closePanel(); onTalk(npc); };
       api.panelNPC = npc;
     },
     refreshPanel() {
@@ -74,12 +72,21 @@ export function createHUD() {
       const s = $('panel-state'); if (s) s.textContent = n.activity;
       const f = $('panel-fsm'); if (f) f.textContent = n.state;
     },
-    showMenu() {
+    /** The menu; with { order } every dish gets an Order button, { only } filters sections. */
+    showMenu({ order = null, only = null } = {}) {
       const p = $('panel'); p.hidden = false; api.panelNPC = null;
-      p.innerHTML = `<button class="close" aria-label="Close">✕</button><div class="eyebrow">Café Azure</div><h3>Today's menu</h3>
-        <div class="menu-list">${MENU.map(([h, items]) => `<h4>${h}</h4>${items.map(([n, d, pr]) => `<div><span>${n}<small>${d}</small></span><b>₹${pr}</b></div>`).join('')}`).join('')}</div>`;
+      p.innerHTML = `<button class="close" aria-label="Close">✕</button><div class="eyebrow">Café Azure</div><h3>${order ? 'What would you like?' : 'Today\'s menu'}</h3>${api.menuHTML(!!order, only)}`;
       p.querySelector('.close').onclick = api.closePanel;
+      if (order) p.querySelectorAll('[data-order]').forEach((b) => { b.onclick = () => order(api.item(b.dataset.order)); });
     },
+    menuHTML(withOrder = false, only = null) {
+      return `<div class="menu-list">${MENU.filter(([h]) => !only || h.startsWith(only)).map(([h, items]) => `<h4>${h}</h4>${items.map(([n, d, pr]) => `<div><span>${n}<small>${d}</small></span><b>₹${pr}${withOrder ? `<button class="order" data-order="${n}">Order</button>` : ''}</b></div>`).join('')}`).join('')}</div>`;
+    },
+    item(name) { for (const [, items] of MENU) for (const [n, desc, price] of items) if (n === name) return { name: n, desc, price }; return null; },
+    zones: () => CONFIG.travel.map((id) => CONFIG.zones.find((z) => z.id === id)),
+    info: () => CONFIG.info,
+    setTravel(fn) { api.travel = (id) => fn(CONFIG.zones.find((z) => z.id === id)); },
+    travel() {},
     closePanel() { $('panel').hidden = true; api.panelNPC = null; },
     showEscort(options, onPick) {
       const e = $('escort'); e.hidden = false;
@@ -92,6 +99,11 @@ export function createHUD() {
     closeEscort() { $('escort').hidden = true; },
     setFPS(f) { $('fps').textContent = `${Math.round(f)} fps`; },
   };
+  function outfitName(o) {
+    if (!o?.style) return 'Resort clothes';
+    const m = { kurta: o.vest != null ? 'Kurta pyjama with a Nehru jacket' : 'Kurta pyjama', sherwani: o.safa === null ? 'Sherwani' : 'Sherwani and safa', dhoti: 'Dhoti kurta' + (o.shawl ? ' with a shawl' : ''), chef: 'Chef\'s whites', guard: 'Security uniform', tee: 'T-shirt and shorts', swim: 'Swimwear', saree: 'Silk saree', lehenga: 'Lehenga choli', anarkali: 'Anarkali suit', salwar: 'Salwar kameez' };
+    return (m[o.style] || o.style) + (o.turban ? ' and a pagri' : '');
+  }
   function zoneName(id) { return CONFIG.zones.find((z) => z.id === id)?.name || 'Azure Bay'; }
 
   // ---------- minimap ----------

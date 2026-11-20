@@ -4,6 +4,7 @@
 <meta property="og:description" content="An interactive 3D restaurant and resort you explore with the arrow keys.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0e1d22">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Ccircle cx=%2232%22 cy=%2232%22 r=%2230%22 fill=%22%230e1d22%22/%3E%3Cpath d=%22M12 40c8-6 14-6 20 0s12 6 20 0%22 stroke=%22%234fd1c5%22 stroke-width=%225%22 fill=%22none%22/%3E%3Ccircle cx=%2232%22 cy=%2222%22 r=%228%22 fill=%22%23e3b866%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Manrope:wght@400;500;600;700&display=swap">
@@ -113,6 +114,60 @@
   .joystick { position: absolute; left: max(28px, env(safe-area-inset-left, 0px)); bottom: calc(max(28px, env(safe-area-inset-bottom, 0px)) + 10px); width: 120px; height: 120px; border-radius: 50%; display: none; place-items: center; touch-action: none; }
   .joystick i { width: 50px; height: 50px; border-radius: 50%; background: rgba(79,209,197,0.55); border: 1px solid rgba(255,255,255,0.4); }
   .act { position: absolute; right: max(24px, env(safe-area-inset-right, 0px)); bottom: calc(max(14px, env(safe-area-inset-bottom, 0px)) + 120px); width: 64px; height: 64px; border-radius: 50%; display: none; place-items: center; font-weight: 800; font-size: 18px; border: 1px solid var(--line); cursor: pointer; }
+  /* ---------- chat ---------- */
+  .chat { position: absolute; left: max(14px, env(safe-area-inset-left, 0px)); bottom: max(14px, env(safe-area-inset-bottom, 0px)); width: min(400px, calc(100vw - 28px)); max-height: min(440px, 58vh); display: grid; grid-template-rows: auto 1fr auto auto; background: var(--glass-strong); overflow: hidden; }
+  .chat header { display: flex; align-items: center; gap: 10px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
+  .chat header div { display: grid; gap: 1px; flex: 1; min-width: 0; }
+  .chat header strong { font-family: var(--font-display); font-weight: 400; font-size: 20px; line-height: 1.1; }
+  .chat header span { color: var(--aqua); font-size: 12px; font-weight: 700; }
+  .chat header button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: transparent; cursor: pointer; }
+  .chat-log { overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-height: 120px; overscroll-behavior: contain; }
+  .msg { max-width: 86%; display: grid; gap: 6px; }
+  .msg p { margin: 0; padding: 8px 11px; border-radius: 12px; font-size: 13.5px; line-height: 1.45; }
+  .msg.them { align-self: flex-start; }
+  .msg.them p { background: #fbf6ec; color: #1a2a2e; border-bottom-left-radius: 3px; }
+  .msg.me { align-self: flex-end; }
+  .msg.me p { background: rgba(79,209,197,0.9); color: #06201d; border-bottom-right-radius: 3px; font-weight: 600; }
+  .msg-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .msg-acts button, .chat-chips button { border: 1px solid var(--aqua); background: rgba(79,209,197,0.12); color: var(--sand); border-radius: 999px; padding: 6px 11px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .msg-acts button:hover, .chat-chips button:hover { background: rgba(79,209,197,0.28); }
+  .chat-chips { display: flex; gap: 6px; overflow-x: auto; padding: 8px 14px 2px; scrollbar-width: none; }
+  .chat-chips button { flex: none; border-color: var(--line); background: rgba(255,255,255,0.05); }
+  .chat form { display: flex; gap: 8px; padding: 10px 14px 14px; }
+  .chat input { flex: 1; min-width: 0; font: inherit; font-size: 14px; color: var(--sand); background: rgba(255,255,255,0.07); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .chat input::placeholder { color: var(--muted); }
+  .chat input:focus { outline: 2px solid var(--aqua); outline-offset: 0; border-color: transparent; }
+  #hud.chatting .travel, #hud.chatting .help { display: none; }
+
+  /* ---------- activity bar (while sitting / lying) ---------- */
+  .activity { position: absolute; left: 50%; bottom: calc(max(14px, env(safe-area-inset-bottom, 0px)) + 122px); transform: translateX(-50%); padding: 10px 12px; display: grid; gap: 8px; width: max-content; max-width: calc(100vw - 28px); background: var(--glass-strong); }
+  .activity .eyebrow { text-align: center; }
+  .activity .acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .activity button { border: 1px solid var(--line); background: rgba(255,255,255,0.06); border-radius: 9px; padding: 8px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .activity button:hover { border-color: var(--aqua); }
+  .activity button.primary { background: var(--aqua); color: #06201d; border-color: transparent; }
+  .prompt em { font-style: normal; color: var(--muted); font-weight: 500; margin-left: 10px; }
+  .menu-list button.order { margin-left: 8px; border: 0; border-radius: 7px; padding: 3px 8px; background: var(--aqua); color: #06201d; font-weight: 700; font-size: 11.5px; cursor: pointer; }
+
+  /* ---------- laptop / computer screen ---------- */
+  .device { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 15; width: min(760px, calc(100vw - 28px)); height: min(520px, calc(100vh - 120px)); display: grid; grid-template-rows: auto 1fr; background: #0f1b20; border: 10px solid #20262b; border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,0.5); overflow: hidden; }
+  .dev-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #1a252b; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+  .dev-bar .close { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--line); background: transparent; cursor: pointer; }
+  .dev-body { display: grid; grid-template-columns: 170px 1fr; min-height: 0; }
+  .dev-apps { display: grid; align-content: start; gap: 4px; padding: 10px; background: #142128; border-right: 1px solid var(--line); }
+  .dev-apps button { text-align: left; border: 0; background: transparent; padding: 9px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .dev-apps button.on, .dev-apps button:hover { background: rgba(79,209,197,0.15); color: var(--aqua); }
+  .dev-view { padding: 16px 20px; overflow-y: auto; font-size: 14px; line-height: 1.55; }
+  .dev-view h3 { margin: 0 0 4px; font-family: var(--font-display); font-weight: 400; font-size: 24px; }
+  .dev-view h4 { margin: 14px 0 4px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+  .dev-view .muted { color: var(--muted); margin: 0 0 10px; }
+  .dev-view .score { font-size: 30px; font-weight: 700; margin: 8px 0 2px; }
+  .dev-list { display: grid; gap: 6px; }
+  .dev-list button { text-align: left; display: grid; gap: 2px; border: 1px solid var(--line); background: rgba(255,255,255,0.04); border-radius: 10px; padding: 9px 12px; cursor: pointer; }
+  .dev-list button:hover { border-color: var(--aqua); }
+  .dev-list small { color: var(--muted); font-size: 12px; }
+  .dev-view textarea { width: 100%; box-sizing: border-box; font: inherit; color: var(--sand); background: rgba(255,255,255,0.06); border: 1px solid var(--line); border-radius: 10px; padding: 10px; resize: vertical; }
+  @media (max-width: 600px) { .dev-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .dev-apps { grid-auto-flow: column; overflow-x: auto; } }
   #fade { position: fixed; inset: 0; background: var(--ink); opacity: 0; pointer-events: none; transition: opacity .35s; z-index: 20; }
   #fade.on { opacity: 1; }
   #error { position: fixed; inset: 0; display: grid; place-items: center; z-index: 50; padding: 24px; text-align: center; background: var(--ink); }
@@ -150,20 +205,20 @@
   <div class="intro-card glass">
     <div class="eyebrow">Restaurant · Resort · Pool</div>
     <h1 class="brand" id="brand">Azure <em>Bay</em></h1>
-    <p class="lede">Walk in from the street, check in with Priya at reception, then explore Café Azure, the kitchen, the guest rooms, the infinity pool and the beach. About 50 staff and guests are going about their day.</p>
+    <p class="lede">Walk in from the street, check in with Priya at reception, then explore Café Azure, the kitchen, the guest rooms, the infinity pool and the beach. Chat with any of the 50 staff and guests by typing in English, sit on any chair, order food, lie on a bed, watch TV or use a laptop.</p>
     <div>
       <div class="progress" role="progressbar" aria-label="Loading the resort" aria-valuemin="0" aria-valuemax="100"><i id="bar"></i></div>
       <div class="progress-text" id="progress-text" style="margin-top:6px">Loading the resort… 0%</div>
     </div>
     <div class="avatars">
-      <button class="avatar" data-kind="xbot" disabled><strong>Enter as Alex</strong><span>A blue-suited explorer</span></button>
-      <button class="avatar" data-kind="michelle" disabled><strong>Enter as Maya</strong><span>A guest on holiday</span></button>
+      <button class="avatar" data-kind="xbot" disabled><strong>Enter as Rahul</strong><span>Kurta with a Nehru jacket</span></button>
+      <button class="avatar" data-kind="michelle" disabled><strong>Enter as Aditi</strong><span>A red anarkali suit</span></button>
     </div>
     <div class="keys-row">
       <div><kbd>↑</kbd><kbd>↓</kbd> walk</div>
       <div><kbd>←</kbd><kbd>→</kbd> turn</div>
       <div><kbd>Shift</kbd> run</div>
-      <div><kbd>E</kbd> talk</div>
+      <div><kbd>E</kbd> chat · sit · use</div>
       <div><kbd>Space</kbd> wave</div>
       <div>Drag to look around</div>
     </div>
@@ -179,7 +234,8 @@
     <div><span>Walk forward / back</span><span><kbd>↑</kbd><kbd>↓</kbd></span></div>
     <div><span>Turn</span><span><kbd>←</kbd><kbd>→</kbd></span></div>
     <div><span>Run</span><span><kbd>Shift</kbd></span></div>
-    <div><span>Talk / interact</span><span><kbd>E</kbd></span></div>
+    <div><span>Chat · sit · use</span><span><kbd>E</kbd></span></div>
+    <div><span>Stand up</span><span><kbd>↑</kbd></span></div>
     <div><span>Wave</span><span><kbd>Space</kbd></span></div>
     <div><span>First-person view</span><span><kbd>C</kbd></span></div>
     <div><span>Day / night</span><span><kbd>N</kbd></span></div>
@@ -198,14 +254,23 @@
   <aside class="panel glass" id="panel" hidden aria-live="polite"></aside>
   <div class="escort glass" id="escort" hidden></div>
   <div class="toast glass out" id="toast" role="status"></div>
+  <section class="chat glass" id="chat" hidden aria-label="Chat">
+    <header><div><strong id="chat-name"></strong><span id="chat-role"></span></div><button id="chat-close" aria-label="Close chat">✕</button></header>
+    <div class="chat-log" id="chat-log" aria-live="polite"></div>
+    <div class="chat-chips" id="chat-chips"></div>
+    <form id="chat-form" autocomplete="off"><input id="chat-input" type="text" maxlength="200" placeholder="Type a message in English…" aria-label="Your message" enterkeyhint="send"><button class="primary" type="submit">Send</button></form>
+  </section>
+  <div class="activity glass" id="activity" hidden></div>
   <div class="joystick glass" id="joy" aria-hidden="true"><i id="knob"></i></div>
   <button class="act glass" id="act" aria-label="Talk">E</button>
 </div>
 
+<section class="device" id="device" hidden aria-label="Computer screen"></section>
+
 <div id="error" hidden><div><h2>3D isn't available here</h2><p>This page needs WebGL to draw the resort. Turn on hardware acceleration in your browser settings (Settings › System) and reload, or open the page in a recent Chrome, Edge, Firefox or Safari.</p></div></div>
 
+<script>window.AZURE_MODEL_EXT = '.gltf.json';</script>
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }
 </script>
-<script>window.AZURE_MODEL_EXT = '.gltf.json';</script>
 <script type="module" src="./main.js"></script>

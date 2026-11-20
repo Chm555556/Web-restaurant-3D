@@ -110,6 +110,8 @@ export async function loadCharacters(manager, kinds = Object.keys(MODELS)) {
     const xRest = restOf(xs, gltfs.xbot.animations);
     const mRest = restOf(ms, gltfs.michelle.animations);
     for (const name of ['idle', 'walk', 'run']) library.michelle.clips[name] = retarget(xs, xRest, library.xbot.clips[name], ms, mRest);
+    // the dancer is built on the X-Bot skeleton too: bring Michelle's samba across
+    if (library.michelle.clips.dance) library.xbot.clips.dance = retarget(ms, mRest, library.michelle.clips.dance, xs, xRest);
     // put both skeletons back in bind pose
     for (const s of [xs, ms]) s.traverse((o) => { if (o.isBone) o.quaternion.copy(o.userData.bindQ); });
   }

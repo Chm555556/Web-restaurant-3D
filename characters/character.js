@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { library } from './loader.js';
+import { applyDress, sizeOf } from './indian.js';
 
 const outfitCache = new Map();
 const _q = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _r = new THREE.Quaternion();
@@ -41,17 +42,21 @@ function outfit(kind, mesh, o) {
 
 export class Character {
   constructor(kind, { name = '', role = '', outfit: of = null, label = true } = {}) {
+    if (of?.sex) kind = 'xbot';                 // every person is built on the X-Bot skeleton (characters/indian.js)
     const L = library[kind];
     this.kind = kind; this.name = name; this.role = role; this.lib = L;
+    this.k = sizeOf(of);                        // women are 0.93 × the skeleton (≈ 1.65 m)
     this.root = new THREE.Group();
     this.pivot = new THREE.Group();
     this.model = SkeletonUtils.clone(L.gltf.scene);
-    this.model.scale.setScalar(L.scale);
+    this.model.scale.setScalar(L.scale * this.k);
     this.model.rotation.y = L.yawOffset;
-    this.baseY = -L.minY * L.scale;
+    this.baseY = -L.minY * L.scale * this.k;
     this.model.position.y = this.baseY;
-    this.model.traverse((o) => { if (o.isMesh) { o.castShadow = true; if (of) outfit(kind, o, of); } });
+    this.model.traverse((o) => { if (o.isMesh) { o.castShadow = true; if (of && !of.sex) outfit(kind, o, of); } });
+    this.outfit = of;
     this.pivot.add(this.model); this.root.add(this.pivot);
+    applyDress(this, of);
 
     this.bones = {};
     if (kind !== 'robot') for (const n of ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftShoulder', 'RightShoulder'])
@@ -125,11 +130,19 @@ export class Character {
 
   /** Lie on a sun lounger (anchor yaw = lounger yaw; head toward the backrest). */
   lieOn(a) {
-    this.lie = true;
+    this.lie = true; this.lieAnchor = a;
     this.root.position.set(a.x, 0, a.z); this.root.rotation.y = a.yaw;
-    this.pivot.rotation.x = -Math.PI / 2 + 0.28;
-    this.pivot.position.set(0, 0.52, 0.95);
+    this.pivot.rotation.x = a.pitch ?? (-Math.PI / 2 + 0.28);
+    this.pivot.position.set(0, a.h ?? 0.52, a.off ?? 0.95);
+    this.poseT.sit = 0; this.pose.sit = 0;
     this.play('idle', 0);
+  }
+
+  /** Get up from a seat, bed or lounger. */
+  standUp() {
+    this.lie = false; this.lieAnchor = null;
+    this.pivot.rotation.x = 0; this.pivot.position.set(0, 0, 0);
+    this.poseT.sit = 0;
   }
 
   attach(obj, boneName, offset = new THREE.Vector3()) {
@@ -157,7 +170,7 @@ export class Character {
     if (P.sit > 0.01) {
       const s = P.sit;
       for (const side of ['Left', 'Right']) { rotW(B[side + 'UpLeg'], _L, -Math.PI / 2 * s); rotW(B[side + 'Leg'], _L, Math.PI / 2 * s * 0.95); }
-      this.model.position.y = this.baseY + ((this.seatY + 0.1) - this.lib.hipH) * s;
+      this.model.position.y = this.baseY + ((this.seatY + 0.1) - this.lib.hipH * this.k) * s;
     } else this.model.position.y = this.baseY;
 
     if (P.swim > 0.01) {

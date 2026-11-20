@@ -27,11 +27,11 @@ export const CONFIG = {
     { id: 'street',    name: 'Ocean Drive',           desc: 'The street outside. Traffic, pedestrians and the resort entrance.', rect: [-90, 34, 90, 60], color: '#5b6670', spawn: [0, 33.5, Math.PI] },
     { id: 'plaza',     name: 'Entrance Plaza',        desc: 'Fountain, palms and the main glass doors. Security stands at the door.', rect: [-40, 20, 40, 34], color: '#c9b48f', spawn: [0, 26, Math.PI] },
     { id: 'lobby',     name: 'Reception Lobby',       desc: 'Check in with Priya at the front desk. Walk up to her and press E to be escorted anywhere.', rect: [-10, -20, 10, 20], color: '#e6d7bd', spawn: [0, 4, Math.PI] },
-    { id: 'kitchen',   name: 'Kitchen',               desc: 'Chef Marco runs the line. Waiters collect plates at the pass window.', rect: [-36, -20, -28, -4], color: '#b9c2c6', spawn: [-31.5, -8, Math.PI] },
-    { id: 'cafe',      name: 'Café Azure · Restaurant', desc: 'All-day dining with a buffet. Guests are eating, waiters are serving. Click the menu stand to see the menu.', rect: [-36, -20, -10, 20], color: '#b98a5e', spawn: [-12, 0, -Math.PI / 2] },
-    { id: 'rooms',     name: 'Guest Rooms 101–106',   desc: 'A corridor of six rooms. Doors open as you approach.', rect: [10, -20, 36, 20], color: '#8f9bb3', spawn: [12, 0, Math.PI / 2] },
-    { id: 'poolbar',   name: 'Pool Bar & Stage',      desc: 'Cold drinks, a robot server and live samba by the water.', rect: [17, -54, 40, -24], color: '#2bb3a8', spawn: [22.5, -40, 0.45] },
-    { id: 'pool',      name: 'Infinity Pool',         desc: 'Swimmers, sun loungers and a lifeguard on duty.', rect: [-40, -60, 40, -20], color: '#3fc6e0', spawn: [0, -24, Math.PI] },
+    { id: 'kitchen',   name: 'Kitchen',               desc: 'Chef Rajesh runs the line. Waiters collect plates at the pass window.', rect: [-36, -20, -28, -4], color: '#b9c2c6', spawn: [-31.5, -8, Math.PI] },
+    { id: 'cafe',      name: 'Café Azure · Restaurant', desc: 'All-day Indian and coastal dining with a buffet. Sit at any free table and press E to order. Click the menu stand to see the menu.', rect: [-36, -20, -10, 20], color: '#b98a5e', spawn: [-12, 0, -Math.PI / 2] },
+    { id: 'rooms',     name: 'Guest Rooms 101–106',   desc: 'Six rooms. Sit on the bed, watch TV, or use the laptop on the desk (walk up and press E).', rect: [10, -20, 36, 20], color: '#8f9bb3', spawn: [12, 0, Math.PI / 2] },
+    { id: 'poolbar',   name: 'Pool Bar & Stage',      desc: 'Fresh lassi, nimbu soda and Bollywood dancing by the water. Sit on a stool to order.', rect: [17, -54, 40, -24], color: '#2bb3a8', spawn: [22.5, -40, 0.45] },
+    { id: 'pool',      name: 'Infinity Pool',         desc: 'Swimmers, sun loungers (press E to lie down) and a lifeguard on duty.', rect: [-40, -60, 40, -20], color: '#3fc6e0', spawn: [0, -24, Math.PI] },
     { id: 'beach',     name: 'Azure Beach',           desc: 'The private beach. Watch the boats on the bay.', rect: [-90, -95, 90, -60], color: '#e8d6a8', spawn: [0, -64, Math.PI] },
   ],
 
@@ -49,6 +49,21 @@ export const CONFIG = {
     low:      { label: 'Lightweight', shadows: false, shadowSize: 0,    pixelRatio: 1,   antialias: false, npcScale: 0.5, env: false, pointLights: false },
     balanced: { label: 'Balanced',    shadows: true,  shadowSize: 1024, pixelRatio: 1.5, antialias: true,  npcScale: 1,   env: true,  pointLights: true },
     high:     { label: 'High',        shadows: true,  shadowSize: 2048, pixelRatio: 2,   antialias: true,  npcScale: 1,   env: true,  pointLights: true },
+  },
+
+  // Café Azure menu (₹). Used by the menu stand, the chat replies and room service.
+  menu: [
+    ['Breakfast · 7–11 am', [['Masala dosa', 'Potato masala, sambar, coconut chutney', 220], ['Masala omelette', 'Tomato, onion, green chilli, toast', 320], ['Poha', 'Flattened rice, peanuts, curry leaves', 180], ['Fresh fruit bowl', 'Papaya, pineapple, mango', 240]]],
+    ['Mains · 12–11 pm', [['Goan prawn curry', 'Coconut, kokum, red rice', 640], ['Butter chicken', 'Tandoori chicken, tomato makhani, naan', 560], ['Paneer tikka platter', 'Mint chutney, pickled onion', 480], ['Veg biryani', 'Basmati, saffron, raita', 420], ['Dal makhani & jeera rice', 'Slow-cooked black lentils', 380]]],
+    ['Drinks & desserts', [['Mango lassi', 'Alphonso mango, cardamom', 190], ['Masala chai', 'Ginger, cardamom', 90], ['Nimbu soda', 'Sweet or salted', 120], ['Tender coconut', 'Served in the shell', 150], ['Kokum cooler', 'Goan kokum, mint', 160], ['Gulab jamun', 'Two pieces, warm', 160]]],
+  ],
+
+  // Facts the staff use when you chat with them.
+  info: {
+    wifi: { network: 'AzureBay-Guest', password: 'namaste2024' },
+    hours: { cafe: '7 am to 11 pm', pool: '7 am to 8 pm', bar: '11 am to midnight', kitchen: '6 am to 11 pm', beach: 'sunrise to sunset', checkin: '2 pm', checkout: '11 am', roomService: '24 hours' },
+    events: ['Yoga on the beach at 7 am', 'Cooking class with Chef Rajesh at 4 pm', 'Bollywood night at the pool stage at 8 pm'],
+    weather: { day: '31°C and sunny with a sea breeze', night: '26°C, clear sky and a warm breeze' },
   },
 
   palette: {
