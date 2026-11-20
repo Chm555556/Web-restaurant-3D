@@ -14,6 +14,7 @@
 
 <p align="center">
   <b><a href="#-quick-start">Quick start</a></b> ·
+  <a href="#-from-real-places-to-the-resort">Inspiration</a> ·
   <a href="#-meet-the-people">The people</a> ·
   <a href="#-everything-is-usable">What you can do</a> ·
   <a href="#-talk-to-anyone">Chat</a> ·
@@ -87,6 +88,37 @@ no backend.
       Quality profiles with device detection, instancing, frustum culling and a pause when the
       tab is hidden. An on-screen joystick appears on phones.
     </td>
+  </tr>
+</table>
+
+---
+
+## ✦ From real places to the resort
+
+<p align="center">
+  <img src="docs/media/inspiration.jpg" alt="Real photos of a tower, a garden plaza and glass towers, each above its painted version" width="100%">
+</p>
+
+Azure Bay's look grew out of real photographs: a residential tower against monsoon clouds,
+a garden plaza with fountains and pergolas, and mirrored glass towers. Each photo was turned
+into a bright, hand-painted-style version, and these images now live inside the project:
+
+<table>
+  <tr>
+    <td width="62%" valign="top">
+
+| Where | Image |
+|---|---|
+| **Start screen** | The painted garden plaza, softly blurred behind the welcome card while the resort loads. It fades to the live 3D fly-over once everything is ready. |
+| **Lobby** | Two large framed paintings above the sofas: the garden plaza and the tower. |
+| **Guest rooms 101–106** | A framed photo or painting above every bed. |
+
+All of them are in [`assets/images/`](assets/images), resized to 1024 px (about 1.5 MB in
+total). To hang your own, replace a file there with one of the same name, or add a `hang(...)`
+line in [`scene/furniture.js`](scene/furniture.js).
+
+  </td>
+    <td width="38%" valign="top"><img src="docs/media/art-park.jpg" alt="Painted park with trees and benches"><br><sub>The painted park, hanging in Room 105.</sub></td>
   </tr>
 </table>
 
@@ -347,6 +379,7 @@ including the shadow pass. Models and textures total **3.5 MB**, and Three.js ad
 │   ├── hud.js              Zone card, minimap, travel, menus, panels
 │   └── chat.js             Chat panel
 ├── assets/models/          X-Bot (skeleton + clips), Michelle (samba clip)
+├── assets/images/          Photos and paintings: start screen, lobby and room art
 ├── vendor/                 Three.js r170 and the addons used
 └── _headers                Cache headers for Netlify / Cloudflare Pages
 ```
@@ -409,6 +442,7 @@ always get the latest version. `azure-bay.html` is a variant for hosts that cann
 - Skeleton and animation clips: *X-Bot* and *Michelle* from the three.js examples
   (originally Mixamo), optimised with gltf-transform. *Soldier* and *RobotExpressive* are
   kept in `assets/models/` but are not loaded.
+- The photographs and painted versions in `assets/images/` were provided for this project.
 - Every body, face, costume, building, prop, texture, sign and TV programme is generated in
   code.
 

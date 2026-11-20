@@ -373,6 +373,32 @@ export function buildFurniture(scene, profile) {
     anchors.computer = { x: 8.45, z: -8.4, yaw: Math.PI / 2, seatY: 0.5 };
   }
 
+  // ---------- framed art (photos and paintings in assets/images) ----------
+  {
+    const loader = new THREE.TextureLoader();
+    const frameMat = M('gold'), backMat = M('darkWood');
+    const hang = (file, x, y, z, yaw, w, h) => {
+      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = yaw;
+      const back = new THREE.Mesh(BoxG(w + 0.12, h + 0.12, 0.04), backMat); back.position.z = 0.02;
+      const tex = loader.load(`assets/images/${file}.jpg`, (t) => { t.needsUpdate = true; });
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+      const art = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55 }));
+      art.position.z = 0.042;
+      g.add(back, art);
+      for (const [fx, fy, fw, fh] of [[0, h / 2 + 0.05, w + 0.14, 0.04], [0, -h / 2 - 0.05, w + 0.14, 0.04], [w / 2 + 0.05, 0, 0.04, h + 0.14], [-w / 2 - 0.05, 0, 0.04, h + 0.14]]) {
+        const bar = new THREE.Mesh(BoxG(fw, fh, 0.05), frameMat); bar.position.set(fx, fy, 0.045); g.add(bar);
+      }
+      g.traverse((o) => { o.userData.dynamic = true; });
+      dyn.add(g);
+    };
+    // lobby: one large painting above each pair of sofas
+    hang('art-plaza', -9.83, 2.55, 11.75, Math.PI / 2, 1.5, 2.25);
+    hang('art-tower', 9.83, 2.55, 11.75, -Math.PI / 2, 1.5, 2.25);
+    // guest rooms: a picture above every bed
+    const roomArt = ['photo-fountain', 'art-glass-towers', 'photo-plaza', 'art-park', 'photo-tower', 'art-tower'];
+    roomXs.forEach(([a], i) => [-1, 1].forEach((side, k) => hang(roomArt[i * 2 + k], a + 0.17, 2.3, side * 11, Math.PI / 2, 0.9, 1.35)));
+  }
+
   // ---------- PLANTS (instanced) ----------
   const potG = compose([[CylG(0.32, 0.24, 0.6, 14), trs(0, 0.3, 0)]]);
   const bushG = compose([[new THREE.IcosahedronGeometry(0.55, 1), trs(0, 1.0, 0, 0, [1, 1.2, 1])], [new THREE.IcosahedronGeometry(0.4, 1), trs(0.2, 1.5, 0.1)], [new THREE.IcosahedronGeometry(0.35, 1), trs(-0.2, 1.35, -0.15)]]);

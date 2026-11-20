@@ -18,6 +18,7 @@ export function createHUD() {
     },
     ready(onPick) {
       api.showIntroProgress(1, 'Ready. Choose who you want to be.');
+      $('intro').classList.remove('loading');   // reveal the live 3D fly-over behind the card
       document.querySelectorAll('.avatar').forEach((b) => { b.disabled = false; b.onclick = () => onPick(b.dataset.kind); });
       document.querySelector('.avatar').focus();
     },
