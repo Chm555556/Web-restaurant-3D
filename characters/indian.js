@@ -290,7 +290,7 @@ function buildPerson(o, bones, boneIndex) {
     }
     if (st === 'tee') return y < Hp.y + 0.02 ? o.bottom : y > A + 0.045 ? skin : o.main;
     // men: kurta / sherwani / chef / guard / dhoti
-    if (y > A + 0.04 && Math.abs(x) < 0.07) return skin;
+    if (y > A + 0.04 && Math.abs(x) < 0.07 && !['kurta', 'sherwani', 'dhoti', 'chef', 'guard'].includes(st)) return skin;   // collared garments cover the neckline
     if (st === 'guard') {
       if (Math.abs(y - (Hp.y + 0.05)) < 0.018) return 0x1b1b1b;            // belt
       if (y < Hp.y + 0.03) return o.bottom;
@@ -618,10 +618,14 @@ function buildPerson(o, bones, boneIndex) {
     b.curve(m, (u) => 0.002 + 0.0036 * Math.sin(u * Math.PI), fh, HW, { segs: 6, n: 16 });
   }
   if (!F && o.beard) {
+    // a smooth cap over the jaw and chin (tilted so it sits below the lips in front), plus sideburns
+    const bq = new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), 0.3);
+    const bd = headDeform(1.0, 0.0065);
     b.ellipsoid(hc, hr, {
-      deform: headDeform(1.0, 0.006), segW: 36, segH: 26, w: HW, col: fh,
-      mask: (u) => u.y < -0.3 + 0.55 * smooth(0.5, 0.95, Math.abs(u.x)) && u.z > -0.3 && !(Math.abs(u.x) < 0.34 && u.y > -0.8 && u.y < -0.45 && u.z > 0.55),
+      theta: [Math.PI * 0.66, Math.PI * 0.97], segW: 36, segH: 10, w: (u) => (u.y < -0.9 ? { Head: 0.8, Neck: 0.2 } : HW),
+      deform: (u) => bd(u.clone().applyQuaternion(bq)), col: (u) => C(fh).clone().multiplyScalar(0.9 + 0.1 * Math.sin(u.x * 40)),
     });
+    for (const sx of [1, -1]) b.curve([V(hc.x + sx * hr[0] * 0.93, hc.y + 0.0, hc.z + 0.0), V(hc.x + sx * hr[0] * 0.9, hc.y - 0.04, hc.z + 0.012), V(hc.x + sx * hr[0] * 0.8, hc.y - 0.075, hc.z + 0.028)], 0.0075, fh, HW, { segs: 8, n: 10 });
   }
 
   // ---------- HAIR (smooth cap tilted back: hairline high in front, low at the nape) ----------
