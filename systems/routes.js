@@ -40,7 +40,7 @@ export function stepToward(ch, tx, tz, speed, dt, blockers = [], { final = true,
   const fx = Math.sin(ch.root.rotation.y), fz = Math.cos(ch.root.rotation.y);
   let sx = 0, sz = 0, blocked = false;
   for (const b of blockers) {
-    if (b === ch) continue;
+    if (b === ch || b.ch === ch) continue;
     const bx = b.x - ch.x, bz = b.z - ch.z;
     const ahead = bx * fx + bz * fz, cross = bx * fz - bz * fx, side = Math.abs(cross);
     if (ahead > 0 && ahead < 0.95 && side < 0.55) {

@@ -6,8 +6,8 @@ export const CONFIG = {
   tagline: 'Restaurant · Resort · Pool',
 
   player: {
-    walkSpeed: 1.75,     // metres / second (a brisk, natural walk)
-    runSpeed: 4.3,       // a jog-run; the run clip is calibrated so the feet stay planted
+    walkSpeed: 1.5,      // metres / second (a natural walk: real people walk at 1.3–1.5)
+    runSpeed: 3.6,       // an easy run; faster than this and the legs spin unnaturally
     backSpeed: 1.1,
     turnSpeed: 2.4,      // radians / second
     radius: 0.35,
@@ -37,6 +37,51 @@ export const CONFIG = {
 
   // Quick-travel buttons (1–8 on the keyboard)
   travel: ['plaza', 'lobby', 'cafe', 'kitchen', 'rooms', 'pool', 'poolbar', 'beach'],
+
+  // Real 3D people (optional). Drop a rigged .glb into assets/people/ with the file name
+  // below and the listed cast members use it instead of the generated character; the
+  // player can use one too (player: 'm' / 'f'). A missing file is skipped quietly.
+  // "Rigged" = it has a Mixamo-style skeleton (Hips, Spine, LeftUpLeg…). Unrigged models
+  // must go through mixamo.com first (upload → auto-rig → download FBX/GLB with skin).
+  // Run tools/import-model.sh on each download to shrink it for the web.
+  people: [
+    // Every man is built from base 'kurta', every woman from one of the women's bodies by
+    // what she wears: 'saree' or 'suit' (kameez + churidar + dupatta). characters/looks.js gives each person their own face, colours, height and
+    // jewellery. face: true = a model that only lends its head (same skeleton family), so
+    // there are five real men's faces and six real women's faces. parts: how each clothing
+    // material is recoloured; hairRef: the hair texture's brightness (for hair dye).
+    { file: 'assets/people/indian-man-in-kurta.glb', sex: 'm', height: 1.76, base: 'kurta', player: 'm', parts: { outfit: 'kurta' }, hairRef: 0.0077,
+      credit: 'Indian Man In Kurta by Nodeaxis Interactive (Sketchfab, Free Standard)', url: 'https://sketchfab.com/3d-models/indian-man-in-kurta-a7fcb7ce36984b1b860ac7e476033bb1' },
+    { file: 'assets/people/indian-teenager.glb', sex: 'm', height: 1.7, face: true,
+      credit: 'Indian Teenager by Nodeaxis Interactive (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/indian-teenager-b2804b40f671431ca7b5cc53b239175e' },
+    { file: 'assets/people/indian-man-in-tshirt.glb', sex: 'm', height: 1.75, face: true,
+      credit: 'Indian Man In Tshirt by Nodeaxis Interactive (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/indian-man-in-tshirt-091381a4eeb14e3b9814e3aaf075ac59' },
+    { file: 'assets/people/indian-football-fan.glb', sex: 'm', height: 1.74, face: true,
+      credit: 'Indian Football Fan by Nodeaxis Interactive (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/indian-football-fan-cf50624deae649ddbfccae9f4f213e6c' },
+    { file: 'assets/people/indian-man-punching-bag.glb', sex: 'm', height: 1.78, face: true,
+      credit: 'Indian man, Punching Bag by Nodeaxis Interactive (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/indian-man-punching-bag-8408c80ccd9548e4bad84bc0dd8e0d7e' },
+    // women
+    { file: 'assets/people/indian-woman-in-saree.glb', sex: 'f', height: 1.62, base: 'saree', skirt: 'outfit', parts: { outfit: 'hue' }, hairRef: 0.0047,
+      credit: 'Indian Woman in Saree by Nodeaxis Interactive (Sketchfab, Free Standard)', url: 'https://sketchfab.com/3d-models/indian-woman-in-saree-b5965a93b03440dea65160f7cbac1fc7' },
+    { file: 'assets/people/indian-office-woman.glb', sex: 'f', height: 1.64, base: 'suit', parts: { outfit: 'kameez' }, legs: true, dupatta: true, hairRef: 0.0034,
+      credit: 'Indian Office Woman by Nodeaxis Interactive (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/indian-office-woman-e6c60cafd33c4d54b0b840c4146ed244' },
+    { file: 'assets/people/modern-indian-woman.glb', sex: 'f', height: 1.63, face: true, hairRef: 0.0147,
+      credit: 'Modern Indian Woman by Nodeaxis Interactive (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/modern-indian-woman-830d8ed3236a4221862290b81807f408' },
+    { file: 'assets/people/modern-indian-woman-2.glb', sex: 'f', height: 1.63, face: true, hairRef: 0.007,
+      credit: 'modern indian woman 2 by Nodeaxis Interactive (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/modern-indian-woman-2-1ab2e8ecceee4e6e897f8fddb17d2b02' },
+    { file: 'assets/people/indian-teen-woman-hoodie.glb', sex: 'f', height: 1.6, face: true, hairRef: 0.0038,
+      credit: 'Indian Teenager, Woman in Hoodie by Nodeaxis Interactive (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/indian-teenager-woman-in-hoodie-3cffef3bcde9469aa3d1ad36755b363c' },
+    { file: 'assets/people/indian-teen-woman-shorts.glb', sex: 'f', height: 1.6, face: true, hairRef: 0.0043,
+      credit: 'Indian Teen In Shorts, Female by Nodeaxis Interactive (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/indian-teen-in-shorts-female-a9e39f6c8e214776a02bfce983ec093f' },
+    { file: 'assets/people/village-saree-woman.glb', sex: 'f', height: 1.57, skirt: 'Material.001', use: ['Lakshmi'],
+      credit: 'Sareewoman by dk8026854 (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/sareewoman-c28105203127478b8e26ad0474083367' },
+    // you, Aditi: exactly as made
+    { file: 'assets/people/saree-woman.glb', sex: 'f', height: 1.63, player: 'f', skirt: 'mat2mat',
+      credit: 'Free fire character in Indian look by kyrox (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/free-fire-character-in-indian-look-712015e84e7542e39916b62d0c02d73b' },
+    // needs Mixamo rigging first: upload assets/incoming/for-mixamo/*.zip (see README)
+    { file: 'assets/people/indian-village-old-man.glb', sex: 'm', height: 1.68, use: ['Ramesh', 'Suresh', 'Prakash'],
+      credit: 'Indian Village Old Man Famous by saksham12x (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/indian-village-old-man-famous-1e5b1ce6cbdd47388eb694d5d2b56f1c' },
+  ],
 
   // Escort destinations the receptionist offers (state machine: ESCORTING)
   escort: [

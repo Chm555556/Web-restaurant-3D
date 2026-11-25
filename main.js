@@ -9,7 +9,7 @@ import { buildArchitecture, createDoors } from './scene/architecture.js';
 import { buildFurniture } from './scene/furniture.js';
 import { buildNeighbourhood } from './scene/neighbourhood.js';
 import { staticBatch } from './scene/helpers.js';
-import { loadCharacters } from './characters/loader.js';
+import { loadCharacters, loadPeople } from './characters/loader.js';
 import { createCast } from './characters/npc.js';
 import { Player, attachJoystick } from './characters/controller.js';
 import { FollowCamera } from './systems/camera.js';
@@ -109,9 +109,12 @@ THREE.FileLoader.prototype.load = function (url, onLoad, onProgress, onError) {
   }, onError);
 };
 
-loadCharacters(manager, ['xbot', 'michelle']).then(() => {
+let people = [];
+loadCharacters(manager, ['xbot', 'michelle']).then(async () => {
+  hud.showIntroProgress(0.92, 'Loading real 3D people…');
+  people = await loadPeople(manager, CONFIG.people);
   hud.showIntroProgress(0.95, 'Waking up the staff…');
-  cast = createCast(scene, furn.anchors, profile, hud);
+  cast = createCast(scene, furn.anchors, profile, hud, people);
   hud.buildTravel(travelTo);
   // compile shaders up front so the first walk doesn't stutter
   renderer.compile(scene, camera);
@@ -122,7 +125,8 @@ loadCharacters(manager, ['xbot', 'michelle']).then(() => {
 });
 
 function startAs(kind) {
-  player = new Player(scene, kind, kind === 'xbot' ? 'Rahul' : 'Aditi');
+  const sex = kind === 'xbot' ? 'm' : 'f';
+  player = new Player(scene, kind, kind === 'xbot' ? 'Rahul' : 'Aditi', people.find((p) => p.player === sex)?.kind);
   player.enabled = true;
   player.onStand = () => interact.onStand();
   player.onWave = () => social.perform('wave');
@@ -270,7 +274,9 @@ function simulate(dt) {
   chat.update();
 
   // NPC behaviour + animation (far characters animate at a lower rate)
-  const ctx = { player: player || { x: 0, z: 60, yaw: 0 }, blockers: player ? [player] : [] };
+  // everyone standing is solid: walkers wait, say "excuse me" and step round each other
+  const solid = npcs.filter((n) => n.standing);
+  const ctx = { player: player || { x: 0, z: 60, yaw: 0 }, blockers: player ? [player, ...solid] : solid };
   camera.updateMatrixWorld();
   _pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
   frustum.setFromProjectionMatrix(_pm);
@@ -282,9 +288,23 @@ function simulate(dt) {
     _sphere.center.set(n.x, 1 + n.ch.root.position.y, n.z);
     const visible = d2 < 130 * 130 && frustum.intersectsSphere(_sphere);
     n.ch.root.visible = visible;
+    n.ch.setDetail(d2 < 16 * 16);
     n._acc = (n._acc || 0) + dt;
     const every = !visible ? 12 : d2 > 70 * 70 ? 4 : d2 > 35 * 35 ? 2 : 1;
     if ((frame + i) % every === 0) { n.ch.update(n._acc); n._acc = 0; }
+  }
+
+  // nobody walks through anybody: push overlapping people apart (only onto walkable floor)
+  for (let i = 0; i < solid.length; i++) for (let j = i + 1; j < solid.length; j++) {
+    const a = solid[i], b = solid[j];
+    const dx = b.x - a.x, dz = b.z - a.z, d2 = dx * dx + dz * dz;
+    if (d2 > 0.3025 || d2 < 1e-8) continue;            // 0.55 m apart
+    const d = Math.sqrt(d2), push = (0.55 - d) / 2, ux = dx / d, uz = dz / d;
+    // whoever is walking gives way; someone standing still is only nudged
+    const wa = a.ch.speed > 0.05 ? 1 : 0.25, wb = b.ch.speed > 0.05 ? 1 : 0.25, k = push * 2 / (wa + wb);
+    const ax = a.x - ux * k * wa, az = a.z - uz * k * wa, bx = b.x + ux * k * wb, bz = b.z + uz * k * wb;
+    if (walkable(ax, az) && !a.talkAt) { a.ch.root.position.x = ax; a.ch.root.position.z = az; }
+    if (walkable(bx, bz) && !b.talkAt) { b.ch.root.position.x = bx; b.ch.root.position.z = bz; }
   }
 
   // sliding doors open for anyone nearby; room / kitchen doors only when someone opens them

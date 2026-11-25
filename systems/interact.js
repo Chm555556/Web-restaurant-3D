@@ -141,10 +141,35 @@ export function createInteractions({ scene, furn, hud, getPlayer, getNpcs, getCo
   const isDrinkName = (n) => /lassi|chai|soda|coconut|cooler|coffee|tea|juice|water|chaas/i.test(n);
   let handProp = null;
 
+  // a real Indian thali (assets/props/thali.glb) for food; plain plate until it loads
+  let thali = null, dinersServed = false;
+  import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => new GLTFLoader().load('assets/props/thali.glb', (g) => {
+    const m = g.scene, box = new THREE.Box3().setFromObject(m), size = box.getSize(new THREE.Vector3());
+    const k = 0.3 / Math.max(size.x, size.z);
+    m.scale.setScalar(k);
+    m.position.set(-(box.min.x + box.max.x) / 2 * k, -box.min.y * k, -(box.min.z + box.max.z) / 2 * k);
+    m.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    thali = new THREE.Group(); thali.add(m);
+  }, undefined, () => {}));
+  /** Thalis in front of the diners already eating in the café. */
+  function serveDiners() {
+    if (dinersServed || !thali) return;
+    const diners = getNpcs().filter((n) => n.role === 'Diner' && n.seat?.table);
+    if (!diners.length) return;
+    dinersServed = true;
+    for (const n of diners) {
+      const a = n.seat, dx = a.table.x - a.x, dz = a.table.z - a.z, d = Math.hypot(dx, dz) || 1;
+      const g = thali.clone(); g.position.set(a.x + dx / d * 0.4, 0.785, a.z + dz / d * 0.4); g.rotation.y = a.yaw;
+      scene.add(g);
+    }
+  }
+
   function makeProp(isDrink) {
     const g = new THREE.Group();
     if (isDrink) {
       const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.034, 0.13, 12), drinkMat); cup.position.y = 0.065; g.add(cup);
+    } else if (thali) {
+      g.add(thali.clone());
     } else {
       const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.02, 18), plateMat); plate.position.y = 0.01;
       const food = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), foodMat); food.scale.y = 0.45; food.position.y = 0.04;
@@ -312,6 +337,7 @@ export function createInteractions({ scene, furn, hud, getPlayer, getNpcs, getCo
     closeDevice: () => { const d = $('device'); if (!d.hidden) { d.closeDevice?.(); return true; } return false; },
     order: placeOrder,
     update(dt) {
+      serveDiners();
       for (let i = orders.length - 1; i >= 0; i--) { orders[i].t -= dt; if (orders[i].t <= 0) { deliver(orders[i]); orders.splice(i, 1); } }
       // the staff clear plates once you have left the table
       const p = getPlayer();

@@ -12,11 +12,11 @@ const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 const angDiff = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 
 export class Player {
-  constructor(scene, kind, name) {
+  constructor(scene, kind, name, model = null) {
     const outfit = kind === 'xbot'
       ? dress.kurta({ main: 0xf4ecd8, bottom: 0xf4ecd8, vest: 0x1f3a68, skin: 'medium' })
       : dress.anarkali({ main: 0xc62828, bottom: 0xf7e7c6, dupatta: 0xf7e7c6, hair: 'braid', skin: 'wheat' });
-    this.ch = new Character(kind, { name, role: 'You', outfit, label: true });
+    this.ch = new Character(kind, { name, role: 'You', outfit, label: true, model });
     this.ch.label.element.classList.add('is-player');
     scene.add(this.ch.root);
     this.keys = new Set();
@@ -104,8 +104,9 @@ export class Player {
         // lie: sit on the edge, then lean back and stretch out
         const sit = ease((u - 0.25) / 0.35), recl = ease((u - 0.55) / 0.45);
         ch.pose.sit = ch.poseT.sit = sit * (1 - recl);
-        ch.pivot.rotation.x = (a.pitch ?? (-Math.PI / 2 + 0.28)) * recl;
-        ch.pivot.position.set(0, (a.h ?? 0.52) * recl, (a.off ?? 0.95) * recl);
+        const L = ch.liePose(a);
+        ch.pivot.rotation.x = L.pitch * recl; ch.legFlex = L.legs * recl;
+        ch.pivot.position.set(0, L.y * recl, L.z * recl);
       },
       end: () => {
         if (lie) ch.lieOn(a); else ch.sitAt(a, true);
@@ -131,8 +132,9 @@ export class Player {
         const recl = wasLie ? 1 - e : e;
         if (!wasLie) ch.seatY = from.seatY ?? 0.5;
         ch.lie = false; ch.pose.sit = ch.poseT.sit = 1 - recl;
-        ch.pivot.rotation.x = (lp.pitch ?? (-Math.PI / 2 + 0.28)) * recl;
-        ch.pivot.position.set(0, (lp.h ?? 0.52) * recl, (lp.off ?? 0.95) * recl);
+        const L = ch.liePose(lp);
+        ch.pivot.rotation.x = L.pitch * recl; ch.legFlex = L.legs * recl;
+        ch.pivot.position.set(0, L.y * recl, L.z * recl);
       },
       end: () => { if (lie) ch.lieOn(to); else { ch.standUp(); ch.sitAt(to, true); } this.yaw = to.yaw; done?.(); },
     };
@@ -169,8 +171,9 @@ export class Player {
         if (lp) {
           // sit up first, swing the legs round, then stand
           const up = ease(u / 0.45);
-          ch.pivot.rotation.x = (lp.pitch ?? (-Math.PI / 2 + 0.28)) * (1 - up);
-          ch.pivot.position.set(0, (lp.h ?? 0.52) * (1 - up), (lp.off ?? 0.95) * (1 - up));
+          const L = ch.liePose(lp);
+          ch.pivot.rotation.x = L.pitch * (1 - up); ch.legFlex = L.legs * (1 - up);
+          ch.pivot.position.set(0, L.y * (1 - up), L.z * (1 - up));
           ch.seatY = lp.h ? lp.h - 0.2 : 0.45;
           ch.pose.sit = ch.poseT.sit = up * (1 - ease((u - 0.55) / 0.45));
         } else ch.pose.sit = ch.poseT.sit = sit0 * (1 - ease(u / 0.75));
@@ -275,7 +278,8 @@ export class Player {
     const turnRate = P.turnSpeed * (1 - Math.min(0.35, Math.abs(this.v) / 12));
     this.yaw += turn * turnRate * dt * (fwd < 0 ? -1 : 1);
     ch.root.rotation.y = this.yaw;
-    const target = fwd > 0 ? (run ? P.runSpeed : P.walkSpeed) * Math.min(1, fwd) : fwd < 0 ? -P.backSpeed : 0;
+    const sk = (this.ch.lib.strideScale ?? 1) < 1 ? 0.87 : 1;   // in a saree: shorter steps, a little slower
+    const target = fwd > 0 ? (run ? P.runSpeed : P.walkSpeed) * sk * Math.min(1, fwd) : fwd < 0 ? -P.backSpeed : 0;
     // accelerate like a person (≈0.4 s to walking pace), brake a bit faster
     const acc = Math.sign(target - this.v) === Math.sign(this.v) || this.v === 0 ? 4.2 : 8;
     this.v += THREE.MathUtils.clamp(target - this.v, -acc * dt * (target === 0 ? 1.6 : 1), acc * dt);

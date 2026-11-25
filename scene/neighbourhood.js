@@ -137,7 +137,13 @@ export function buildNeighbourhood(scene, profile) {
   };
   for (let i = 0; i < N; i++) respawn(i);
   sprayGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const spray = new THREE.Points(sprayGeo, new THREE.PointsMaterial({ color: 0xdff6ff, size: 0.09, transparent: true, opacity: 0.8, depthWrite: false }));
+  // round, soft water drops (a plain PointsMaterial draws hard white squares)
+  const dropC = document.createElement('canvas'); dropC.width = dropC.height = 32;
+  const dg = dropC.getContext('2d'), grad = dg.createRadialGradient(16, 16, 0, 16, 16, 16);
+  grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.35, 'rgba(235,248,255,0.8)'); grad.addColorStop(1, 'rgba(220,240,255,0)');
+  dg.fillStyle = grad; dg.fillRect(0, 0, 32, 32);
+  const dropT = new THREE.CanvasTexture(dropC); dropT.colorSpace = THREE.SRGBColorSpace;
+  const spray = new THREE.Points(sprayGeo, new THREE.PointsMaterial({ color: 0xe8f7ff, map: dropT, alphaMap: null, size: 0.07, transparent: true, opacity: 0.75, depthWrite: false, alphaTest: 0.02 }));
   spray.frustumCulled = false;
   dyn.add(spray);
 

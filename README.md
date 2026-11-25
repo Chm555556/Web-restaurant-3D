@@ -425,9 +425,104 @@ including the shadow pass. Models and textures total **3.5 MB**, and Three.js ad
 │   └── chat.js             Chat panel
 ├── assets/models/          X-Bot (skeleton + clips), Michelle (samba clip)
 ├── assets/images/          Photos and paintings: start screen, lobby and room art
+├── assets/people/          Optional real 3D people (see "Real 3D people")
+├── tools/import-model.sh   Convert, shrink and install a downloaded model
 ├── vendor/                 Three.js r170 and the addons used
 └── _headers                Cache headers for Netlify / Cloudflare Pages
 ```
+
+---
+
+## ✦ Real 3D people (optional)
+
+You can swap the generated characters for downloaded, sculpted 3D people. They get the same
+walk, run, sit, lie, swim, door and gesture behaviour as everyone else, because the clips
+are retargeted onto their skeleton when the page loads.
+
+1. **Download** the model from Sketchfab: *Download 3D Model → glTF (.glb)*. You need a
+   free Sketchfab account.
+2. **Rig it if needed.** If the model has no skeleton, upload it to
+   [mixamo.com](https://www.mixamo.com), let it auto-rig, then download
+   *FBX Binary, With Skin, T-pose*.
+3. **Install it:**
+
+   ```bash
+   tools/import-model.sh ~/Downloads/indian_man_in_kurta.glb indian-man-in-kurta
+   ```
+
+   This converts FBX to glTF, halves the triangle count, shrinks the textures to 1024 px
+   WebP and registers the file in `assets/people/index.json`. You need Node.js. Pass a third
+   argument to keep more or fewer triangles, e.g. `0.3` for a very heavy model.
+4. **Reload.** In `CONFIG.people`:
+   - `base: 'kurta'`, `'saree'` or `'suit'` makes a model the body that men, saree women or
+     suit women are built from.
+   - `face: true` lends only the model's head, so it needs the same skeleton family.
+   - `use: [...]` gives the model to the named cast members only.
+   - `player: 'm'` or `'f'` makes it your own character.
+
+   A model that isn't installed falls back to the generated character.
+
+### Everyone is their own person
+
+All men wear a kurta-pyjama. Women wear a saree, or a salwar suit (kameez, churidar and
+dupatta). No two look alike (`characters/looks.js`):
+
+- **Real faces.** The Nodeaxis models share one skeleton per sex, so their heads can be put
+  on any body of that family. That gives five men's faces and six women's faces, plus the
+  village woman's own face. Every face is then reshaped a little: its width, jaw, length
+  and depth.
+- **Clothes.** Saree women use the *Indian Woman in Saree* body. The saree print is turned
+  round the colour wheel to each woman's colour from the cast list, so the print stays.
+  Suit women use the *Indian Office Woman* body: the dress becomes a kameez (plain,
+  bandhani dots, block-print stripes or checks), the legs a gathered churidar, and a
+  dupatta fitted to her body is draped round the neck. Lakshmi is the village woman in her
+  yellow saree.
+- **Skin, hair and make-up.** Skin tone comes from the cast list (`skin: 'fair'` … `'deep'`).
+  Hair is toned to black or brown, and older people (`grey: true`) go grey. Women get their
+  own lipstick. Men with `beard` or `mustache` get one.
+- **Height and build** vary by about ±5 %.
+- **Details.** Bindi, nose ring, earrings, gajra flowers, glasses, tilak, a turban (Harpreet)
+  and a chef's cap (the chefs).
+- **Staff.** Women on the staff wear the resort saree (teal with an orange print). Men wear
+  a teal kurta with a cream pyjama.
+- **You.** Aditi is the *Free fire character in Indian look* exactly as made: her own face,
+  pink saree, purple pallu and yellow blouse. Rahul keeps the kurta model's own face.
+
+The animation is retargeted by **direction**: each bone of the model is first turned to
+point the way the X-Bot's bone points, and only then are the X-Bot's movements copied. This
+works even when a model was rigged with its arms down (Mixamo's auto-rig of an A-pose
+mesh). The hips keep the clip's bounce and sway, scaled to the model's leg length.
+
+Women in a saree take shorter, quicker steps. The cloth is shared between both legs, so
+it hangs like a saree instead of splitting into trouser legs. People far from the camera
+switch to a low-detail copy of their model (`assets/people/lod/`, made by
+`tools/import-model.sh`). Their eyes and jewellery are hidden, because nobody can see them
+at that distance.
+
+| Model | Author | Licence | Status | Used for |
+|---|---|---|---|---|
+| [Indian Man In Kurta](https://sketchfab.com/3d-models/indian-man-in-kurta-a7fcb7ce36984b1b860ac7e476033bb1) | Nodeaxis Interactive | Sketchfab Free Standard | installed (base) | Every man's body and kurta; Rahul (you) and the grey-haired men keep its face |
+| [Indian Teenager](https://sketchfab.com/3d-models/indian-teenager-b2804b40f671431ca7b5cc53b239175e) | Nodeaxis Interactive | CC BY 4.0 | installed (face) | One of the five male faces |
+| [Indian Man In Tshirt](https://sketchfab.com/3d-models/indian-man-in-tshirt-091381a4eeb14e3b9814e3aaf075ac59) | Nodeaxis Interactive | CC BY 4.0 | installed (face) | One of the five male faces |
+| [Indian Football Fan](https://sketchfab.com/3d-models/indian-football-fan-cf50624deae649ddbfccae9f4f213e6c) | Nodeaxis Interactive | CC BY 4.0 | installed (face) | One of the five male faces |
+| [Indian man, Punching Bag](https://sketchfab.com/3d-models/indian-man-punching-bag-8408c80ccd9548e4bad84bc0dd8e0d7e) | Nodeaxis Interactive | CC BY 4.0 | installed (face) | One of the five male faces |
+| [Indian Thali](https://sketchfab.com/3d-models/indian-thali-d2711a9410b945d7aaa33c638a4fd95e) | seirogan | CC BY 4.0 | installed (`assets/props/thali.glb`) | Food served in the café and by room service |
+| [Free fire character in Indian look](https://sketchfab.com/3d-models/free-fire-character-in-indian-look-712015e84e7542e39916b62d0c02d73b) | kyrox | CC BY 4.0 | installed (rigged on Mixamo) | Aditi (you), exactly as made |
+| [Indian Woman in Saree](https://sketchfab.com/3d-models/indian-woman-in-saree-b5965a93b03440dea65160f7cbac1fc7) | Nodeaxis Interactive | Sketchfab Free Standard | installed (base: saree) | Every woman in a saree, and the women on the staff; one of the six faces |
+| [Indian Office Woman](https://sketchfab.com/3d-models/indian-office-woman-e6c60cafd33c4d54b0b840c4146ed244) | Nodeaxis Interactive | CC BY 4.0 | installed (base: suit) | Every woman in a salwar suit; one of the six faces |
+| [Modern Indian Woman](https://sketchfab.com/3d-models/modern-indian-woman-830d8ed3236a4221862290b81807f408) | Nodeaxis Interactive | CC BY 4.0 | installed (face) | One of the six women's faces |
+| [modern indian woman 2](https://sketchfab.com/3d-models/modern-indian-woman-2-1ab2e8ecceee4e6e897f8fddb17d2b02) | Nodeaxis Interactive | CC BY 4.0 | installed (face) | One of the six women's faces |
+| [Indian Teenager, Woman in Hoodie](https://sketchfab.com/3d-models/indian-teenager-woman-in-hoodie-3cffef3bcde9469aa3d1ad36755b363c) | Nodeaxis Interactive | CC BY 4.0 | installed (face) | One of the six women's faces |
+| [Indian Teen In Shorts, Female](https://sketchfab.com/3d-models/indian-teen-in-shorts-female-a9e39f6c8e214776a02bfce983ec093f) | Nodeaxis Interactive | CC BY 4.0 | installed (face) | One of the six women's faces |
+| [Sareewoman](https://sketchfab.com/3d-models/sareewoman-c28105203127478b8e26ad0474083367) | dk8026854 | CC BY 4.0 | installed | Lakshmi, the village woman in a yellow saree |
+| [Indian Village Old Man Famous](https://sketchfab.com/3d-models/indian-village-old-man-famous-1e5b1ce6cbdd47388eb694d5d2b56f1c) | saksham12x | CC BY 4.0 | needs Mixamo (`assets/incoming/for-mixamo/indian-village-old-man.zip`) | Ramesh, Suresh, Prakash |
+
+Not used: *Cute Indian Girl* (a photo-scan of a real child, arms fused to the body),
+*Teal Tiered Dress* (a western dress, arms fused), *Midnight Elegance* (2.5 million faces).
+*Ghibli style character*, *INDIAN_WOMAN* and *Japanese house* can't be downloaded.
+
+CC BY 4.0 lets you use and change a model if you credit its author. Keep this table if
+you publish the project.
 
 ---
 
@@ -475,8 +570,10 @@ always get the latest version. `azure-bay.html` is a variant for hosts that cann
 
 ## ✦ Known limitations
 
-- The characters are stylised, not photo-real, and have no individual hair strands or
-  fabric textures.
+- Most women share one long hairstyle (the Nodeaxis women's haircut). Lehenga and
+  anarkali wearers are shown in a salwar suit, because no rigged lehenga or anarkali model
+  was available.
+- Beards and moustaches are painted on the skin, not modelled hair.
 - Chat is rule-based and offline. Unusual questions get a polite *"I'm not sure, try asking
   about…"*.
 - When someone lies down in a wide lehenga or anarkali, the hem lifts a little.

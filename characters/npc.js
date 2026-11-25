@@ -336,11 +336,23 @@ function walkerScript(npc, route, { pauseChance = 0.35, pause = [2, 6], lines = 
   return new Script(npc, steps);
 }
 
-export function createCast(scene, anchors, profile, hud) {
+export function createCast(scene, anchors, profile, hud, people = []) {
   const npcs = [];
   const add = (n, core = false) => { n.core = core; npcs.push(n); return n; };
   const full = profile.npcScale >= 1;
-  const P = (name, role, outfit, extra = {}) => ({ name, role, outfit, ...extra });
+  // real 3D people from CONFIG.people take over the cast members they list
+  const real = new Map(); for (const p of people) for (const n of p.use || []) real.set(n, p.kind);
+  // everyone else is built from a base body: men from the kurta, women from the body that
+  // matches what they wear (staff all wear the uniform saree)
+  const base = {}; for (const p of people) if (p.base) base[p.base] = p.kind;
+  const WEAR = { saree: 'saree', lehenga: 'saree', salwar: 'suit', anarkali: 'suit' };
+  const bodyFor = (role, of) => {
+    if (!of?.sex) return null;
+    if (of.sex === 'm') return base.kurta || null;
+    const want = /receptionist|waitress|buffet|housekeeping/i.test(role) ? 'saree' : WEAR[of.style] || 'saree';
+    return base[want] || base.saree || base.suit || null;
+  };
+  const P = (name, role, outfit, extra = {}) => ({ name, role, outfit, model: real.get(name) || bodyFor(role, outfit), ...extra });
 
   // ===================== LOBBY =====================
   const priya = add(new Receptionist(scene, P('Priya', 'Receptionist', D.saree({ main: 0x8b1538, blouse: 0xe3b33f, hair: 'bun', sindoor: true, mangalsutra: true, skin: 'wheat' }), { zone: 'lobby' }), anchors, hud), true);

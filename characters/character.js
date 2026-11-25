@@ -17,6 +17,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { library } from './loader.js';
 import { applyDress, sizeOf } from './indian.js';
+import { lookFor, personalize } from './looks.js';
 
 const outfitCache = new Map();
 const _q = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _r = new THREE.Quaternion(), _id = new THREE.Quaternion();
@@ -90,25 +91,37 @@ export const GESTURES = {
 };
 
 export class Character {
-  constructor(kind, { name = '', role = '', outfit: of = null, label = true } = {}) {
-    if (of?.sex) kind = 'xbot';                 // every person is built on the X-Bot skeleton (characters/indian.js)
+  constructor(kind, { name = '', role = '', outfit: of = null, label = true, model = null } = {}) {
+    // a real rigged 3D person (CONFIG.people) if one was loaded for this name, otherwise
+    // a person generated on the X-Bot skeleton (characters/indian.js)
+    const real = !!(model && library[model]);
+    if (real) kind = model; else if (of?.sex) kind = 'xbot';
     const L = library[kind];
-    this.kind = kind; this.name = name; this.role = role; this.lib = L;
-    this.k = sizeOf(of);                        // women are 0.93 × the skeleton (≈ 1.65 m)
+    this.kind = kind; this.name = name; this.role = role; this.lib = L; this.real = real;
+    // a real person gets their own face, colours, height and build (characters/looks.js)
+    // (Aditi, the player, is the saree model exactly as made: own face, colours and size)
+    const asMade = role === 'You' && L.sex === 'f';
+    this.appearance = real && L.base && !asMade ? lookFor({ name, role, outfit: of || {}, sex: L.sex, lib: L }) : null;
+    this.k = real ? (this.appearance?.height ?? 1) : sizeOf(of);   // generated women are 0.93 × the skeleton (≈ 1.65 m)
+    // leg length relative to the X-Bot the walk and run clips were measured on: a shorter
+    // person takes shorter strides, so the cadence must follow or the feet slide
+    this.stride = real && library.xbot?.hipH ? L.hipH * this.k / library.xbot.hipH * (L.strideScale ?? 1) : this.k;
     this.root = new THREE.Group();
     this.pivot = new THREE.Group();
     this.model = SkeletonUtils.clone(L.gltf.scene);
     this.model.scale.setScalar(L.scale * this.k);
+    if (this.appearance) { this.model.scale.x *= this.appearance.build; this.model.scale.z *= this.appearance.build; }
     this.model.rotation.y = L.yawOffset;
     this.baseY = -L.minY * L.scale * this.k;
     this.model.position.y = this.baseY;
     this.model.traverse((o) => { if (o.isMesh) { o.castShadow = true; if (of && !of.sex) outfit(kind, o, of); } });
     this.outfit = of;
     this.pivot.add(this.model); this.root.add(this.pivot);
-    applyDress(this, of);
+    if (!real) applyDress(this, of);
+    else if (this.appearance) personalize(this, this.appearance);
 
     this.bones = {};
-    if (kind !== 'robot') for (const n of ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftShoulder', 'RightShoulder', 'LeftHand', 'RightHand', 'LeftHandMiddle1', 'RightHandMiddle1'])
+    if (kind !== 'robot') for (const n of ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftShoulder', 'RightShoulder', 'LeftHand', 'RightHand', 'LeftHandMiddle1', 'RightHandMiddle1', 'LeftFoot', 'RightFoot'])
       this.bones[n] = this.model.getObjectByName('mixamorig' + n);
 
     this.mixer = new THREE.AnimationMixer(this.model);
@@ -130,6 +143,7 @@ export class Character {
     this.poseT = { ...this.pose };
     this.seatY = 0.5;
     this.lie = false;
+    this.legFlex = 0;          // hips bent while reclining on a lounger (radians)
     this.t = Math.random() * 10;
     this.speed = 0;
     this.accessories = [];
@@ -205,21 +219,43 @@ export class Character {
     this.setMove(0);
   }
 
+  /**
+   * How to lie on a bed or sun lounger. A bed anchor gives its own pitch / height / offset.
+   * A lounger: the back rests on the backrest (34°), the hips sit in the crease and the
+   * hips bend so the legs lie flat on the cushion, like a person really reclines.
+   */
+  liePose(a) {
+    if (a.pitch != null) return { pitch: a.pitch, y: a.h ?? 0.52, z: a.off ?? 0.95, legs: 0 };
+    const back = 0.6, pitch = -(Math.PI / 2 - back), h = (this.lib.hipH ?? 0.95) * this.k;
+    const hipY = 0.53, hipZ = -0.36;                  // hip joint just above the crease of the cushion
+    return { pitch, y: hipY - h * Math.cos(pitch), z: hipZ - h * Math.sin(pitch), legs: back };
+  }
   /** Lie on a sun lounger or bed (anchor yaw = lounger yaw; head toward the backrest). */
   lieOn(a) {
     this.lie = true; this.lieAnchor = a;
     this.root.position.set(a.x, 0, a.z); this.root.rotation.y = a.yaw;
-    this.pivot.rotation.x = a.pitch ?? (-Math.PI / 2 + 0.28);
-    this.pivot.position.set(0, a.h ?? 0.52, a.off ?? 0.95);
+    const L = this.liePose(a);
+    this.pivot.rotation.x = L.pitch;
+    this.pivot.position.set(0, L.y, L.z);
+    this.legFlex = L.legs;
     this.poseT.sit = 0; this.pose.sit = 0;
     this.setMove(0);
   }
 
   /** Get up from a seat, bed or lounger. */
   standUp() {
-    this.lie = false; this.lieAnchor = null;
+    this.lie = false; this.lieAnchor = null; this.legFlex = 0;
     this.pivot.rotation.x = 0; this.pivot.position.set(0, 0, 0);
     this.poseT.sit = 0;
+  }
+
+  /** Show the small parts (eyes, lashes, jewellery, glasses) only when near the camera. */
+  setDetail(on) {
+    if (this._detail === on || !this.detail) return;
+    this._detail = on;
+    for (const m of this.detail) m.visible = on;
+    // far away: the low-detail meshes (a quarter of the triangles)
+    if (this.lod) for (const l of this.lod) l.mesh.geometry = on ? l.near : l.far;
   }
 
   attach(obj, boneName, offset = new THREE.Vector3()) {
@@ -231,9 +267,13 @@ export class Character {
   _locomotion(dt) {
     const Lc = this.loco, A = this.actions;
     Lc.v += (Lc.vt - Lc.v) * Math.min(1, dt * 7);
-    const av = Math.abs(Lc.v), k = this.k;
+    const av = Math.abs(Lc.v), k = this.stride;
     const walkN = WALK_SPEED * k, runN = RUN_SPEED * k;
-    const ww = sstep(0.03, 0.4, av), wr = sstep(walkN * 1.1, runN * 0.92, av);
+    // below normal walking speed people take shorter steps, not slower ones: the stride
+    // shrinks (walk blended with standing) with the square root of speed, and so does the
+    // cadence, so a stroll looks like a stroll and not a slow-motion walk
+    const ww = sstep(0.02, 0.12, av) * Math.min(1, Math.sqrt(av / walkN));
+    const wr = sstep(walkN * 1.1, runN * 0.92, av);
     // over-clip (dance…) fades in/out
     Lc.overW += ((Lc.overOn ? 1 : 0) - Lc.overW) * Math.min(1, dt * 4);
     if (Lc.over && !Lc.overOn && Lc.overW < 0.01) { Lc.over.stop(); Lc.over = null; }
@@ -241,7 +281,7 @@ export class Character {
     if (A.walk && A.run) {
       const wd = A.walk.getClip().duration, rd = A.run.getClip().duration;
       // one cadence for both clips so their footfalls line up while blending
-      const fW = Math.max(av, 0.55 * ww) / walkN / wd, fR = av / runN / rd;
+      const fW = Math.max(av, 0.3) / (walkN * Math.max(0.35, ww)) / wd, fR = av / runN / rd;
       const f = THREE.MathUtils.lerp(fW, Math.max(fR, fW * 0.6), wr);
       Lc.phase = frac(Lc.phase + f * dt * (Lc.v < 0 ? -1 : 1));
       A.walk.time = Lc.phase * wd;
@@ -415,7 +455,7 @@ export class Character {
     const anyPose = P.sit + P.wave + P.eat + P.type + P.talk + P.carry + P.stir + P.look + P.swim + P.phone > 0.01;
     const lookOn = this.lookAt || Math.abs(this.look.yaw) + Math.abs(this.look.pitch) > 0.01;
     const leanOn = Math.abs(this.lean) + Math.abs(this.roll) > 0.004;
-    if (!anyPose && !g && !lookOn && !leanOn && !this.accessories.length) { this.model.position.y = this.baseY; return; }
+    if (!anyPose && !g && !lookOn && !leanOn && !this.accessories.length && this.legFlex < 1e-3) { this.model.position.y = this.baseY; return; }
     this.root.updateMatrixWorld(true);
     // character axes in world space
     this.pivot.getWorldQuaternion(_q);
@@ -432,8 +472,24 @@ export class Character {
       // lean back a little into the backrest, like people really sit
       rotW(B.Spine, _L, -0.08 * s);
       this.model.position.y = this.baseY + ((this.seatY + 0.11) - this.lib.hipH * this.k) * s;
+      // feet flat on the floor: let the thighs slope down (and bend the knees back) until they reach it
+      if (!this.lie && B.LeftFoot && this.lib.thigh) {
+        this.model.updateMatrixWorld(true);
+        const floor = this.root.position.y + (this.lib.ankleH ?? 0.08) * this.k, th = this.lib.thigh * this.k;
+        for (const side of ['Left', 'Right']) {
+          B[side + 'Foot'].getWorldPosition(_v);
+          const d = _v.y - floor;
+          if (d > 0.01) { const a = Math.asin(Math.min(0.6, d / th)) * s; rotW(B[side + 'UpLeg'], _L, a); rotW(B[side + 'Leg'], _L, -a); }
+        }
+      }
     } else this.model.position.y = this.baseY;
 
+    if (this.legFlex > 1e-3) {
+      // reclining: legs bent up at the hips to lie flat, knees a little soft, arms resting
+      for (const side of ['Left', 'Right']) { rotW(B[side + 'UpLeg'], _L, -this.legFlex - 0.06); rotW(B[side + 'Leg'], _L, 0.1); }
+      const r = Math.min(1, this.legFlex / 0.6);
+      rotW(B.Head, _L, 0.25 * r);
+    }
     if (P.swim > 0.01) {
       const w = P.swim, ph = t * 3.2;
       rotW(B.LeftArm, _L, (ph % (Math.PI * 2)) * w);
