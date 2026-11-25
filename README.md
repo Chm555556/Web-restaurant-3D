@@ -464,7 +464,9 @@ are retargeted onto their skeleton when the page loads.
 
 ### Everyone is their own person
 
-All men wear a kurta-pyjama. Women wear a saree, or a salwar suit (kameez, churidar and
+Men wear a kurta-pyjama (plain, striped, checked or dotted), a polo with jeans or chinos, a
+printed shirt with jeans, or a T-shirt with shorts by the pool and on the beach. Staff and
+older men wear kurtas. Women wear a saree, or a salwar suit (kameez, churidar and
 dupatta). No two look alike (`characters/looks.js`):
 
 - **Real faces.** The Nodeaxis models share one skeleton per sex, so their heads can be put
@@ -502,10 +504,10 @@ at that distance.
 | Model | Author | Licence | Status | Used for |
 |---|---|---|---|---|
 | [Indian Man In Kurta](https://sketchfab.com/3d-models/indian-man-in-kurta-a7fcb7ce36984b1b860ac7e476033bb1) | Nodeaxis Interactive | Sketchfab Free Standard | installed (base) | Every man's body and kurta; Rahul (you) and the grey-haired men keep its face |
-| [Indian Teenager](https://sketchfab.com/3d-models/indian-teenager-b2804b40f671431ca7b5cc53b239175e) | Nodeaxis Interactive | CC BY 4.0 | installed (face) | One of the five male faces |
-| [Indian Man In Tshirt](https://sketchfab.com/3d-models/indian-man-in-tshirt-091381a4eeb14e3b9814e3aaf075ac59) | Nodeaxis Interactive | CC BY 4.0 | installed (face) | One of the five male faces |
+| [Indian Teenager](https://sketchfab.com/3d-models/indian-teenager-b2804b40f671431ca7b5cc53b239175e) | Nodeaxis Interactive | CC BY 4.0 | installed (base: polo) | Polo and jeans; one of the five male faces |
+| [Indian Man In Tshirt](https://sketchfab.com/3d-models/indian-man-in-tshirt-091381a4eeb14e3b9814e3aaf075ac59) | Nodeaxis Interactive | CC BY 4.0 | installed (base: shirt) | Printed shirt and jeans; one of the five male faces |
 | [Indian Football Fan](https://sketchfab.com/3d-models/indian-football-fan-cf50624deae649ddbfccae9f4f213e6c) | Nodeaxis Interactive | CC BY 4.0 | installed (face) | One of the five male faces |
-| [Indian man, Punching Bag](https://sketchfab.com/3d-models/indian-man-punching-bag-8408c80ccd9548e4bad84bc0dd8e0d7e) | Nodeaxis Interactive | CC BY 4.0 | installed (face) | One of the five male faces |
+| [Indian man, Punching Bag](https://sketchfab.com/3d-models/indian-man-punching-bag-8408c80ccd9548e4bad84bc0dd8e0d7e) | Nodeaxis Interactive | CC BY 4.0 | installed (base: beach) | T-shirt and shorts; one of the five male faces |
 | [Indian Thali](https://sketchfab.com/3d-models/indian-thali-d2711a9410b945d7aaa33c638a4fd95e) | seirogan | CC BY 4.0 | installed (`assets/props/thali.glb`) | Food served in the café and by room service |
 | [Free fire character in Indian look](https://sketchfab.com/3d-models/free-fire-character-in-indian-look-712015e84e7542e39916b62d0c02d73b) | kyrox | CC BY 4.0 | installed (rigged on Mixamo) | Aditi (you), exactly as made |
 | [Indian Woman in Saree](https://sketchfab.com/3d-models/indian-woman-in-saree-b5965a93b03440dea65160f7cbac1fc7) | Nodeaxis Interactive | Sketchfab Free Standard | installed (base: saree) | Every woman in a saree, and the women on the staff; one of the six faces |

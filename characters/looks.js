@@ -71,14 +71,23 @@ export function lookFor({ name = '', role = '', outfit: of = {}, sex, lib = null
     L.glasses = grey || r() < 0.12;
   } else {
     const u = staff ? UNIFORM.m : null;
-    L.main = u ? u.main : of.main ?? 0xf2ead8;
+    const casual = style && style !== 'kurta';
+    const TOPS = [0x1f4e79, 0x8b1e3f, 0x2e7d32, 0xf2f2ee, 0x37474f, 0xc0392b, 0x6d4c41, 0x00838f, 0xf9a825, 0x5d4037, 0x283593];
+    L.main = u ? u.main : casual ? (of.main && r() < 0.5 ? of.main : TOPS[Math.floor(r() * TOPS.length)]) : of.main ?? 0xf2ead8;
     L.bottom = u ? u.bottom : of.bottom ?? 0xf3efe6;
+    L.jeans = [0x22344f, 0x3d5a80, 0x5b7fa6, 0xc2ab7d, 0x1c1c1c, 0x5f6648, 0x8d8f91][Math.floor(r() * 7)];
+    L.shorts = [0x9e9e9e, 0xc2ab7d, 0x1f3a5f, 0x556b2f, 0x2b2b2b][Math.floor(r() * 5)];
+    // kurtas: plain, pin stripes, small checks or a fine print; some with a contrast churidar
+    L.pattern = u ? 0 : [0, 0, 2, 3, 1][Math.floor(r() * 5)];
+    L.accent = 0xffffff;
+    if (!u && !of.bottom && r() < 0.35) L.bottom = [0xf3efe6, 0xffffff, 0x2b2b2b, 0xd7c9a7][Math.floor(r() * 4)];
     // the kurta model's own face is the older one, with its own hair mesh (so it can go grey)
-    L.face = grey || role === 'You' ? own : faceTurn.m++ % Math.max(1, faces.length);
+    const kurtaFace = Math.max(0, faces.findIndex((f) => f.base === 'kurta'));
+    L.face = grey || role === 'You' ? kurtaFace : faceTurn.m++ % Math.max(1, faces.length);
     L.hair = grey ? 0x9a948c : 0x120d0b;
     L.hairMix = grey ? 0.9 : 0;
     L.beard = of.beard ? 1 : 0;
-    L.mustache = of.mustache && L.face !== own ? 1 : 0;
+    L.mustache = of.mustache && faces[L.face]?.base !== 'kurta' ? 1 : 0;   // the kurta man's face has a real one
     L.glasses = grey ? r() < 0.6 : r() < 0.15;
     L.turban = of.turban ?? null;
     L.chefCap = of.cap === 'chef' || /chef/i.test(role);
@@ -106,6 +115,14 @@ vec3 lkRgb(vec3 k) {
   return pow(k.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), k.y), vec3(2.2));
 }
 const vec3 LKW = vec3(0.2126, 0.7152, 0.0722);
+// cloth prints on a plain colour: 1 dots (bandhani), 2 stripes with dots, 3 small checks
+vec3 lkPrint(vec3 t, vec3 accent, float pat, vec2 uv) {
+  vec2 q = uv * 70.0;
+  if (pat > 0.5 && pat < 1.5) { vec2 f = fract(q + vec2(0.5 * floor(mod(q.y, 2.0)), 0.0)) - 0.5; return mix(t, accent, 1.0 - smoothstep(0.12, 0.2, length(f))); }
+  if (pat > 1.5 && pat < 2.5) { float st = step(0.82, fract(uv.x * 24.0)); vec2 f = fract(q * 0.5) - 0.5; return mix(t, accent, max(st, 1.0 - smoothstep(0.1, 0.16, length(f)))); }
+  if (pat > 2.5) { vec2 f = step(0.5, fract(q * 0.35)); return mix(t, mix(t, accent, 0.35), abs(f.x - f.y)); }
+  return t;
+}
 `;
 const FRAG = {
   // pink body, purple border, yellow blouse → this person's three colours
@@ -123,7 +140,7 @@ const FRAG = {
   // left half of the atlas is the kurta, right half the pyjama (and the near-black sandals)
   kurta: /* glsl */`{
     vec3 c = diffuseColor.rgb; float lum = dot(c, LKW);
-    vec3 t = vMapUv.x < 0.5 ? uMain * (lum / ${REF.kurta}) : uBottom * (lum / ${REF.pyjama});
+    vec3 t = vMapUv.x < 0.5 ? lkPrint(uMain, mix(uMain, uAccent, 0.55), uPattern, vMapUv) * (lum / ${REF.kurta}) : uBottom * (lum / ${REF.pyjama});
     float keep = vMapUv.x < 0.5 ? 0.0 : 1.0 - smoothstep(0.013, 0.024, lum);
     diffuseColor.rgb = mix(t, c, keep);
   }`,
@@ -137,12 +154,7 @@ const FRAG = {
   tint: /* glsl */`{
     vec3 c = diffuseColor.rgb; float lum = dot(c, LKW);
     float m = uMaskU > 0.0 ? 1.0 - step(uMaskU, vMapUv.x) : 1.0;
-    vec3 t = uTint;
-    // a print: 1 bandhani dots, 2 block-print stripes with dots, 3 small checks
-    vec2 q = vMapUv * vec2(70.0, 70.0);
-    if (uPattern > 0.5 && uPattern < 1.5) { vec2 f = fract(q + vec2(0.5 * floor(mod(q.y, 2.0)), 0.0)) - 0.5; t = mix(t, uAccent, 1.0 - smoothstep(0.12, 0.2, length(f))); }
-    else if (uPattern < 2.5 && uPattern > 1.5) { float st = step(0.82, fract(vMapUv.x * 24.0)); vec2 f = fract(q * 0.5) - 0.5; t = mix(t, uAccent, max(st, 1.0 - smoothstep(0.1, 0.16, length(f)))); }
-    else if (uPattern > 2.5) { vec2 f = step(0.5, fract(q * 0.35)); t = mix(t, mix(t, uAccent, 0.35), abs(f.x - f.y)); }
+    vec3 t = lkPrint(uTint, uAccent, uPattern, vMapUv);
     diffuseColor.rgb = mix(c, t * (0.3 + 0.7 * lum / uRef), m);
   }`,
   hair: /* glsl */`{
@@ -182,7 +194,7 @@ const FRAG = {
 };
 const UNIFORMS = {
   saree: 'uniform vec3 uMain, uBorder, uBlouse;',
-  kurta: 'uniform vec3 uMain, uBottom;',
+  kurta: 'uniform vec3 uMain, uBottom, uAccent; uniform float uPattern;',
   hair: 'uniform vec3 uHair; uniform float uHairMix, uHairRef;',
   skin: 'uniform vec3 uLip, uHairC, uLegC; uniform float uLipOn, uTone, uBeard, uMoust, uLegOn, uLegTop; varying vec3 vHeadP; varying float vBodyY;',
   hue: 'uniform float uHue, uSatK, uValK;',
@@ -528,7 +540,14 @@ export function personalize(ch, L) {
   for (const m of meshes) {
     const p = partOf(m, lib);
     if (p === 'saree') m.material = patch(m.material, 'saree', { uMain: { value: col(L.main ?? 0xb0123a) }, uBorder: { value: col(L.border) }, uBlouse: { value: col(L.blouse) } });
-    else if (p === 'kurta') m.material = patch(m.material, 'kurta', { uMain: { value: col(L.main) }, uBottom: { value: col(L.bottom) } });
+    else if (p === 'kurta') m.material = patch(m.material, 'kurta', { uMain: { value: col(L.main) }, uBottom: { value: col(L.bottom) }, uAccent: { value: col(L.accent ?? 0xffffff) }, uPattern: { value: L.pattern ?? 0 } });
+    else if (p && typeof p === 'object' && p.tint) {
+      // plain cloth part of a casual outfit: shirt / T-shirt in the top colour, jeans, chinos, shorts
+      m.material = patch(m.material, 'tint', { uTint: { value: col(L[p.tint] ?? L.main) }, uRef: { value: p.ref }, uMaskU: { value: 0 }, uPattern: { value: 0 }, uAccent: { value: col(0xffffff) } });
+    } else if (p && typeof p === 'object' && p.hue) {
+      const t = hsvOf(L[p.hue] ?? L.main);
+      m.material = patch(m.material, 'hue', { uHue: { value: t.h - p.h }, uSatK: { value: THREE.MathUtils.clamp(t.s / p.s, 0.45, 1.5) }, uValK: { value: THREE.MathUtils.clamp(t.v / p.v, 0.7, 2.2) } });
+    }
     else if (p === 'hue' && L.main != null) {
       const ref = HUE_REF[L.style] || HUE_REF.saree, t = hsvOf(L.main);
       m.material = patch(m.material, 'hue', { uHue: { value: t.h - ref.h }, uSatK: { value: THREE.MathUtils.clamp(t.s / ref.s, 0.45, 1.5) }, uValK: { value: THREE.MathUtils.clamp(t.v / ref.v, 0.7, 2.2) } });

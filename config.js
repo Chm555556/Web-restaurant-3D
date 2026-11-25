@@ -45,20 +45,24 @@ export const CONFIG = {
   // must go through mixamo.com first (upload → auto-rig → download FBX/GLB with skin).
   // Run tools/import-model.sh on each download to shrink it for the web.
   people: [
-    // Every man is built from base 'kurta', every woman from one of the women's bodies by
-    // what she wears: 'saree' or 'suit' (kameez + churidar + dupatta). characters/looks.js gives each person their own face, colours, height and
+    // Every man is built from one of the men's bodies: 'kurta' (kurta-pyjama), 'polo' (polo
+    // and jeans or chinos), 'shirt' (printed shirt and jeans), 'beach' (T-shirt and shorts);
+    // every woman from the body that matches what she wears: 'saree' or 'suit' (kameez + churidar + dupatta). characters/looks.js gives each person their own face, colours, height and
     // jewellery. face: true = a model that only lends its head (same skeleton family), so
     // there are five real men's faces and six real women's faces. parts: how each clothing
     // material is recoloured; hairRef: the hair texture's brightness (for hair dye).
     { file: 'assets/people/indian-man-in-kurta.glb', sex: 'm', height: 1.76, base: 'kurta', player: 'm', parts: { outfit: 'kurta' }, hairRef: 0.0077,
       credit: 'Indian Man In Kurta by Nodeaxis Interactive (Sketchfab, Free Standard)', url: 'https://sketchfab.com/3d-models/indian-man-in-kurta-a7fcb7ce36984b1b860ac7e476033bb1' },
-    { file: 'assets/people/indian-teenager.glb', sex: 'm', height: 1.7, face: true,
+    { file: 'assets/people/indian-teenager.glb', sex: 'm', height: 1.7, base: 'polo', hairRef: 0.006,
+      parts: { outfit_top: { tint: 'main', ref: 0.1396 }, outfit_bottom: { tint: 'jeans', ref: 0.0253 } },
       credit: 'Indian Teenager by Nodeaxis Interactive (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/indian-teenager-b2804b40f671431ca7b5cc53b239175e' },
-    { file: 'assets/people/indian-man-in-tshirt.glb', sex: 'm', height: 1.75, face: true,
+    { file: 'assets/people/indian-man-in-tshirt.glb', sex: 'm', height: 1.75, base: 'shirt', hairRef: 0.006,
+      parts: { outfit_top: { hue: 'main', h: 0.026, s: 0.42, v: 0.46 }, outfit_bottom: { tint: 'jeans', ref: 0.0253 } },
       credit: 'Indian Man In Tshirt by Nodeaxis Interactive (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/indian-man-in-tshirt-091381a4eeb14e3b9814e3aaf075ac59' },
     { file: 'assets/people/indian-football-fan.glb', sex: 'm', height: 1.74, face: true,
       credit: 'Indian Football Fan by Nodeaxis Interactive (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/indian-football-fan-cf50624deae649ddbfccae9f4f213e6c' },
-    { file: 'assets/people/indian-man-punching-bag.glb', sex: 'm', height: 1.78, face: true,
+    { file: 'assets/people/indian-man-punching-bag.glb', sex: 'm', height: 1.78, base: 'beach', hairRef: 0.006,
+      parts: { outfit_top: { tint: 'main', ref: 0.0242 }, outfit_bottom: { tint: 'shorts', ref: 0.0724 } },
       credit: 'Indian man, Punching Bag by Nodeaxis Interactive (Sketchfab, CC BY 4.0)', url: 'https://sketchfab.com/3d-models/indian-man-punching-bag-8408c80ccd9548e4bad84bc0dd8e0d7e' },
     // women
     { file: 'assets/people/indian-woman-in-saree.glb', sex: 'f', height: 1.62, base: 'saree', skirt: 'outfit', parts: { outfit: 'hue' }, hairRef: 0.0047,

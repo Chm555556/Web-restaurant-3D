@@ -348,11 +348,22 @@ export function createCast(scene, anchors, profile, hud, people = []) {
   const WEAR = { saree: 'saree', lehenga: 'saree', salwar: 'suit', anarkali: 'suit' };
   const bodyFor = (role, of) => {
     if (!of?.sex) return null;
-    if (of.sex === 'm') return base.kurta || null;
+    if (of.sex === 'm') {
+      // staff wear the uniform kurta and older men a kurta; guests dress as they like:
+      // casual or Indian wear, and shorts by the pool and on the beach
+      const traditional = /sherwani|dhoti/.test(of.style) || of.grey;
+      if (STAFF.test(role) || traditional) return base.kurta || null;
+      const h = [...name].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+      const seaside = /pool|beach/.test(zoneOf) || /swim|sunbath|beach/i.test(role);
+      const wardrobe = seaside ? ['beach', 'polo', 'beach', 'shirt', 'kurta'] : ['kurta', 'polo', 'shirt', 'kurta', 'polo', 'shirt'];
+      return base[wardrobe[h % wardrobe.length]] || base.kurta || null;
+    }
     const want = /receptionist|waitress|buffet|housekeeping/i.test(role) ? 'saree' : WEAR[of.style] || 'saree';
     return base[want] || base.saree || base.suit || null;
   };
-  const P = (name, role, outfit, extra = {}) => ({ name, role, outfit, model: real.get(name) || bodyFor(role, outfit), ...extra });
+  const STAFF = /receptionist|concierge|security|bellboy|waiter|waitress|buffet|chef|housekeeping|room service|lifeguard|bartender|pool server|patrol/i;
+  let zoneOf = '', name = '';
+  const P = (nm, role, outfit, extra = {}) => { name = nm; zoneOf = extra.zone || ''; return { name: nm, role, outfit, model: real.get(nm) || bodyFor(role, outfit), ...extra }; };
 
   // ===================== LOBBY =====================
   const priya = add(new Receptionist(scene, P('Priya', 'Receptionist', D.saree({ main: 0x8b1538, blouse: 0xe3b33f, hair: 'bun', sindoor: true, mangalsutra: true, skin: 'wheat' }), { zone: 'lobby' }), anchors, hud), true);
