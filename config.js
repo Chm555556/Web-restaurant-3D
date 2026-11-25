@@ -6,9 +6,9 @@ export const CONFIG = {
   tagline: 'Restaurant · Resort · Pool',
 
   player: {
-    walkSpeed: 2.2,      // metres / second
-    runSpeed: 5.2,
-    backSpeed: 1.4,
+    walkSpeed: 1.75,     // metres / second (a brisk, natural walk)
+    runSpeed: 4.3,       // a jog-run; the run clip is calibrated so the feet stay planted
+    backSpeed: 1.1,
     turnSpeed: 2.4,      // radians / second
     radius: 0.35,
     start: { x: 0, z: 33.5, yaw: Math.PI },   // on the pavement, facing the building

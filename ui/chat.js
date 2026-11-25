@@ -1,12 +1,12 @@
 // ui/chat.js — type to anyone in English. Opens when you press E next to a person
 // (or "Chat" in their info card). Replies come from characters/dialogue.js and also
 // appear as a speech bubble above the character's head.
-import { reply, opening, suggestions } from '../characters/dialogue.js';
+import { reply, opening, suggestions, gestureFor } from '../characters/dialogue.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-export function createChat({ getPlayer, getCtx, onAction }) {
+export function createChat({ getPlayer, getCtx, onAction, onGesture }) {
   const box = $('chat'), log = $('chat-log'), form = $('chat-form'), input = $('chat-input'), chips = $('chat-chips');
   let npc = null;
 
@@ -49,10 +49,13 @@ export function createChat({ getPlayer, getCtx, onAction }) {
     bubble('me', text);
     input.value = '';
     const r = reply(npc, text, getCtx(npc));
+    const g = gestureFor(npc, text);
     const n = npc;
+    if (g?.together) onGesture?.(g.together, n);       // a handshake starts straight away
     setTimeout(() => {
       if (npc !== n) return;
       bubble('them', r.text, r.actions); say(r.text);
+      if (g?.npc && !n.ch.gest) n.ch.gesture(g.npc);
       if (r.end) setTimeout(() => { if (npc === n) api.close(); }, 1600);
     }, 380 + Math.min(900, r.text.length * 6));
   }
@@ -68,6 +71,7 @@ export function createChat({ getPlayer, getCtx, onAction }) {
       log.innerHTML = '';
       const hi = opening(npc, getCtx(npc));
       bubble('them', hi); say(hi);
+      if (!npc.ch.gest && !npc.swimmer) npc.ch.gesture(/receptionist|concierge|security|waiter|waitress|chef|bartender|server|housekeeping|room service|bellboy|host/i.test(npc.role) || Math.random() < 0.5 ? 'namaste' : 'wave');
       renderChips();
       box.hidden = false; document.getElementById('hud').classList.add('chatting');
       setTimeout(() => input.focus(), 30);

@@ -20,6 +20,7 @@ export function resolveCircle(pos, r) {
   for (let pass = 0; pass < 2; pass++) {
     for (const b of colliders) {
       if (b.minY > 1.2) continue; // lintels above doors don't block walking
+      if (b.door && b.door.open > 0.55) continue; // an open door leaves the doorway free
       const cx = Math.max(b.minX, Math.min(pos.x, b.maxX));
       const cz = Math.max(b.minZ, Math.min(pos.z, b.maxZ));
       const dx = pos.x - cx, dz = pos.z - cz;
@@ -46,6 +47,7 @@ export function rayCast(o, d, len) {
   let best = len;
   for (const b of colliders) {
     if (!b.cam) continue;
+    if (b.door && b.door.open > 0.35) continue;
     let tmin = 0, tmax = best;
     const ax = [['x', b.minX, b.maxX], ['y', b.minY, b.maxY], ['z', b.minZ, b.maxZ]];
     let hit = true;

@@ -9,8 +9,8 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const has = (t, re) => re.test(t);
 
 // ---------- who is who ----------
-const STAFF = /receptionist|concierge|security|bellboy|waiter|waitress|buffet|chef|housekeeping|lifeguard|bartender|dancer|server|patrol/;
-const SERVES = /waiter|waitress|buffet|chef|bartender|server|concierge|receptionist/;
+const STAFF = /room service|receptionist|concierge|security|bellboy|waiter|waitress|buffet|chef|housekeeping|lifeguard|bartender|dancer|server|patrol/;
+const SERVES = /room service|waiter|waitress|buffet|chef|bartender|server|concierge|receptionist/;
 const HOME = ['Goa', 'Kochi in Kerala', 'Mumbai', 'Pune', 'Kolkata', 'Chennai', 'Jaipur', 'Lucknow', 'Hyderabad', 'Mysuru', 'Bhopal', 'Mangaluru', 'Indore', 'Nagpur'];
 function hometown(npc) {
   if (/harpreet/i.test(npc.name)) return 'Amritsar in Punjab';
@@ -130,6 +130,11 @@ export function reply(npc, raw, ctx = {}) {
     return out(pick([`Goodbye${you}! Enjoy your stay.`, `Alvida${you}! Come back soon.`, `See you around${you}!`]), [], true);
   }
   if (has(t, /\b(thank|thanks|thx|shukriya|dhanyavad|dhanyawad)\b/)) return out(pick([`You're welcome${you}!`, 'Koi baat nahi, my pleasure!', 'Anytime! Anything else?']));
+  // gestures you ask for (ui/chat.js plays them, see gestureFor below)
+  if (has(t, /\b(shake hands?|handshake|hand shake|haath milao)\b/)) return out(pick([`Of course${you}! Very nice to meet you.`, 'With pleasure! Welcome to Azure Bay.', 'Haan ji, so nice to meet you!']));
+  if (has(t, /\b(high ?five|hi ?5|high-five|give me five)\b/)) return out(pick(['Up top! ✋', 'Ha! High five!', 'Yes! Too good!']));
+  if (has(t, /\b(let'?s dance|dance (with|for) me|can you dance|show me (a |some |your )?(dance|moves|steps)|naacho|nachoge|do a dance)\b/)) return out(npc.ch.pose.sit > 0.5 ? 'I\'m sitting right now, but I\'ll clap along for you!' : pick(['Arre, why not! A few Bollywood steps, just for you.', 'Chalo! Watch this.']));
+  if (has(t, /\bhugs?\b/)) return out('Haha! Here, a warm namaste is our hug. 🙏');
   if (has(t, /\b(stupid|idiot|shut up|hate you|useless|dumb)\b/)) return out('Oh dear, I\'m sorry if I upset you. Let me know how I can help.');
 
   // escort / directions
@@ -247,4 +252,25 @@ export function suggestions(npc, ctx) {
   if (/housekeeping/.test(r)) return ['Can I get fresh towels?', 'When is check-out?'];
   if (/lifeguard/.test(r)) return ['How deep is the pool?', 'When does the pool close?'];
   return ['Namaste! How are you?', 'What are you doing?', 'Where are you from?', 'What should I do here?'];
+}
+
+/**
+ * Which gesture goes with a message: { together } for a handshake / high five you do
+ * together, or { npc } for a move the other person makes while answering.
+ */
+export function gestureFor(npc, raw) {
+  const t = ` ${raw.toLowerCase().replace(/[’']/g, "'")} `;
+  if (/shake hands?|handshake|hand shake|haath milao/.test(t)) return { together: 'handshake' };
+  if (/high ?five|hi ?5|high-five|give me five/.test(t)) return { together: 'highfive' };
+  if (/let'?s dance|dance (with|for) me|can you dance|show me (a |some |your )?(dance|moves|steps)|naacho|nachoge|do a dance/.test(t)) return { npc: npc.ch.pose.sit > 0.5 ? 'clap' : 'dance' };
+  if (/\bhugs?\b/.test(t)) return { npc: 'namaste' };
+  if (/\b(joke|funny|make me laugh|haha+|lol)\b/.test(t)) return { npc: 'laugh' };
+  if (/\b(bye|goodbye|good bye|see you|alvida|tata|good night)\b/.test(t)) return { npc: 'wave' };
+  if (/\b(thank|thanks|thx|shukriya|dhanyavad|dhanyawad)\b/.test(t)) return { npc: 'namaste' };
+  if (/\b(namaste|namaskar|pranam|sat sri akal|vanakkam)\b/.test(t)) return { npc: 'namaste' };
+  if (/\b(hi|hii|hello|hey|good (morning|afternoon|evening))\b/.test(t)) return { npc: isStaff(npc) ? 'namaste' : 'wave' };
+  if (/\b(don't know|dunno|no idea|confused)\b/.test(t)) return { npc: 'shrug' };
+  if (/^ (yes|yeah|ok|okay|sure|haan|accha|achha)\b/.test(t)) return { npc: 'nod' };
+  if (/\b(beautiful|lovely|amazing|awesome|wonderful|gorgeous)\b/.test(t)) return { npc: 'namaste' };
+  return null;
 }

@@ -174,7 +174,7 @@ takes two draw calls: one for cloth and skin, one for gold.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/media/cafe.jpg" alt="Seated at a café table with the activity bar"><br><b>Café Azure.</b> Sit at any free table, press <b>Order food</b>, and your plate arrives a few seconds later.</td>
+    <td width="50%"><img src="docs/media/cafe.jpg" alt="Seated at a café table with the activity bar"><br><b>Café Azure.</b> Sit at any free table and press <b>Order food</b>. Sameer collects it at the kitchen pass, carries it over on a tray and serves it at your table.</td>
     <td width="50%"><img src="docs/media/room.jpg" alt="Lying in bed in Room 104 with the cricket on TV"><br><b>Guest rooms.</b> Sit on the bed, lie down, sleep until morning, switch the TV on and flip channels.</td>
   </tr>
   <tr>
@@ -185,15 +185,46 @@ takes two draw calls: one for cloth and skin, one for gold.
 
 | Where | What you can do |
 |---|---|
-| Café (48 seats) | Order from the menu, eat, chat with the diners next to you |
-| Pool bar (5 stools) | Order a drink, sip it |
+| Café (48 seats) | Order from the menu (the waiter brings it), eat, chat with the diners next to you |
+| Pool bar (5 stools) | Order a drink (the bartender mixes and serves it), sip it |
 | Lobby sofas, plaza and pool benches | Sit, use your phone, wave |
-| Guest rooms 101–106 | Bed (sit, lie down, sleep), armchair, desk with laptop, TV with 5 channels |
-| Sun loungers (14) | Lie down, order a tender coconut |
+| Guest rooms 101–106 | Doors you open and close, bed (sit, lie down, sleep), armchair, desk with laptop, TV with 5 channels, room service delivered to the room |
+| Sun loungers (14) | Lie down, order a tender coconut (the pool server brings it) |
 | Lobby | Guest computer, menu stand, escort by the receptionist |
 
 TV channels are drawn live into a canvas texture: *Cricket Live*, *Bollywood Music*,
 *India News*, *Nature HD* and *Azure Bay TV*.
+
+### Real doors, real deliveries
+
+- **Doors.** The room and kitchen doors stay shut until someone opens them. Walk up and
+  press <kbd>E</kbd> to open or close one. A closed door blocks the way, hides whoever is
+  behind it and swings shut by itself once everyone has gone. Staff and guests stop at a
+  door, reach for the handle and walk through.
+- **Deliveries.** Every order is carried by a person:
+
+  | You order from | Who brings it | Route |
+  |---|---|---|
+  | A café table, the lobby or the plaza | Sameer, the waiter | Kitchen pass → your table |
+  | A bar stool | Joseph, the bartender | Mixes it, then serves it across the counter |
+  | A sun lounger or the pool deck | Mohan, the pool server | Pool bar → your lounger |
+  | Your room (bed, desk, armchair or laptop) | Vikram, room service | Pantry trolley → corridor → knocks on your door → opens it → serves you |
+
+  Paths are found on a walkable grid baked from the collision boxes, with A* and
+  string-pulling, so nobody walks through a table, chair or wall.
+- **Sitting.** Chairs are solid. Press <kbd>E</kbd> and you walk round the table to the
+  free side, turn and lower yourself into the seat, then lean back. Standing up and lying
+  down are animated too, with no fade to black.
+
+### Gestures
+
+Press <kbd>G</kbd> (or **Gestures**) for 🙏 namaste, 🤝 handshake, ✋ high five, 👋 wave,
+🙇 bow, 👏 clap, 🙌 cheer, 💃 dance, 😄 laugh, nod, shake head and 🤔 think. The person
+you face answers: a namaste for a namaste, a wave back, a laugh, sometimes a dance.
+Handshakes and high fives bring you to arm's length, and two-bone arm IK sends both right
+hands to the same point, so the hands really meet. This works with seated people too. In
+chat, typing *shake hands*, *high five*, *let's dance*, *namaste* or *tell me a joke* plays
+the matching move.
 
 ---
 
@@ -260,6 +291,8 @@ point you to the waiter.
 | Name labels | <kbd>L</kbd> |
 | Quick travel | <kbd>1</kbd> – <kbd>8</kbd> |
 | Reset camera | <kbd>R</kbd> |
+| Open / close a room or kitchen door | <kbd>E</kbd> |
+| Gestures (namaste, handshake, high five…) | <kbd>G</kbd> |
 | Close chat, laptop or panels | <kbd>Esc</kbd> |
 
 On phones and tablets, an on-screen joystick and an **E** button appear.
@@ -285,12 +318,13 @@ flowchart LR
         E[environment.js<br/>sun · sky · day/night]
     end
     subgraph People
-        I --> C[character.js<br/>animation + procedural poses]
+        I --> C[character.js<br/>blend tree · poses · IK gestures]
         C --> NPC[npc.js<br/>routines · state machines]
         C --> P[controller.js<br/>player: walk · sit · lie]
     end
     subgraph Interaction
-        IX[interact.js<br/>use furniture · orders]
+        IX[interact.js<br/>use furniture · deliveries]
+        SO[social.js<br/>gestures] --- IX
         D[dialogue.js<br/>intent matching] --> CH[chat.js<br/>chat panel]
         H[hud.js<br/>minimap · menus · prompts]
     end
@@ -324,8 +358,17 @@ flowchart LR
 
 <br>
 
-- **Waypoint routes, no pathfinding.** `routes.js` runs scripts of steps: walk a path,
-  pause, face, pose, say, sit.
+- **Scripted routines on a nav grid.** `routes.js` runs scripts of steps: walk a path,
+  pause, face, pose, say, sit. Any leg that would cut through furniture is re-routed by
+  `nav.js` (A* on a 0.35 m grid baked from the colliders, then string-pulled). Walkers ease
+  in and out of speed, slow down for sharp corners and stop at closed doors to open them.
+- **Natural locomotion.** Idle, walk and run play together as a blend tree driven by the
+  real ground speed. Walk and run share one phase so their footfalls line up, and the clip
+  rates are calibrated from the measured stride (walk 1.44 m/s, run 3.34 m/s), so the feet
+  don't slide. Bodies lean into speed and turns, and heads turn toward nearby people.
+- **Gestures with arm IK.** Namaste, handshake, high five, clap and the rest place the
+  hands with two-bone IK relative to the chest, so the same gesture fits men, women and
+  seated people.
 - **The receptionist** runs `IDLE → TYPING → GREETING → STANDING → ESCORTING →
   WAITING/ARRIVED → RETURNING → SITTING`.
 - **Procedural poses** in `character.js` layer sitting, eating, typing, waving, talking,
@@ -357,20 +400,22 @@ including the shadow pass. Models and textures total **3.5 MB**, and Three.js ad
 ├── characters/
 │   ├── indian.js           Generates every person: body, face, hair, dress, jewellery
 │   ├── dialogue.js         Offline chat: intents and in-character replies
-│   ├── character.js        One animated person: clips, crossfades, procedural poses
-│   ├── npc.js              The cast and their routines, receptionist state machine
-│   ├── controller.js       The player: movement, collisions, sit / lie / stand
+│   ├── character.js        One animated person: locomotion blend tree, poses, IK gestures, look-at
+│   ├── npc.js              The cast, routines, deliveries, gesture reactions, receptionist
+│   ├── controller.js       The player: acceleration, collisions, animated sit / lie / stand
 │   └── loader.js           glTF loading, retargeting, measurements
 ├── scene/
-│   ├── architecture.js     Building shell, walls, doors, pool, signs
+│   ├── architecture.js     Building shell, walls, pool, signs, doors (sliding + real swing doors)
 │   ├── furniture.js        Furniture, TVs and channels, laptops, guest computer, anchors
 │   ├── neighbourhood.js    Street, city blocks, beach, boats
 │   ├── environment.js      Sky, three-light setup, fog, day / night
 │   ├── materials.js        Shared material cache and generated textures
 │   └── helpers.js          Instancing, static batching, geometry helpers
 ├── systems/
-│   ├── interact.js         Usable furniture and devices, orders, activity bar
-│   ├── routes.js           Waypoint paths and step scripts
+│   ├── interact.js         Usable furniture and devices, orders and who delivers them
+│   ├── social.js           Gestures between you and the people around you
+│   ├── nav.js              Walkable grid, A* path finding, path smoothing
+│   ├── routes.js           Steering (easing, turning, door stops) and step scripts
 │   ├── camera.js           Follow and first-person camera
 │   ├── collision.js        Box colliders, camera ray-casts
 │   ├── traffic.js          Cars, airplane

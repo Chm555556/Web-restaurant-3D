@@ -5,7 +5,7 @@ import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { CONFIG } from './config.js';
 import { initMaterials, setAnisotropy, getMat } from './scene/materials.js';
 import { createEnvironment, wind } from './scene/environment.js';
-import { buildArchitecture, updateDoors } from './scene/architecture.js';
+import { buildArchitecture, createDoors } from './scene/architecture.js';
 import { buildFurniture } from './scene/furniture.js';
 import { buildNeighbourhood } from './scene/neighbourhood.js';
 import { staticBatch } from './scene/helpers.js';
@@ -19,6 +19,9 @@ import { rayCast } from './systems/collision.js';
 import { createHUD } from './ui/hud.js';
 import { createChat } from './ui/chat.js';
 import { createInteractions } from './systems/interact.js';
+import { createSocial } from './systems/social.js';
+import { buildNav, refinePath, walkable } from './systems/nav.js';
+import { world } from './systems/routes.js';
 
 if (!webglAvailable()) {
   document.getElementById('error').hidden = false;
@@ -58,6 +61,12 @@ const arch = buildArchitecture(scene, profile);
 const furn = buildFurniture(scene, profile);
 const hood = buildNeighbourhood(scene, profile);
 staticBatch(arch.group); staticBatch(furn.group); staticBatch(hood.group);
+// walkable grid for people (waiters, room service) + real doors they knock on and open
+buildNav();
+const doors = createDoors(arch.doors);
+world.gate = (ch, tx, tz) => doors.gate(ch, tx, tz);
+world.refine = refinePath;
+world.walkable = walkable;
 const traffic = createTraffic(scene, profile);
 
 env.onNight((n) => {
@@ -70,7 +79,7 @@ const followCam = new FollowCamera(camera, renderer.domElement);
 let player = null, cast = null, started = false;
 
 // everything usable (seats, beds, TVs, laptops…) and typed chat with anyone
-const interact = createInteractions({ scene, furn, hud, getPlayer: () => player, getNpcs: () => npcsList(), toggleNight: () => toggleNight(), isNight: () => env.isNight() });
+const interact = createInteractions({ scene, furn, hud, getPlayer: () => player, getNpcs: () => npcsList(), getCouriers: () => cast?.couriers ?? {}, toggleNight: () => toggleNight(), isNight: () => env.isNight() });
 furn.anchors.rooms[101].tv.setPower(true);   // Neha is watching the cricket
 const chat = createChat({
   getPlayer: () => player,
@@ -78,10 +87,12 @@ const chat = createChat({
   onAction(act, npc) {
     if (act.type === 'escort') { chat.close(); cast.priya.startEscort(act.arg); }
     else if (act.type === 'travel') { chat.close(); travelTo(CONFIG.zones.find((z) => z.id === act.arg)); }
-    else if (act.type === 'menu') hud.showMenu(/waiter|waitress|buffet|chef|bartender|server|concierge|receptionist/i.test(npc.role) ? { order: (item) => { interact.order(item); npc.ch.say(`One ${item.name.toLowerCase()}, coming up!`, 3); } } : {});
+    else if (act.type === 'menu') hud.showMenu(/room service|waiter|waitress|buffet|chef|bartender|server|concierge|receptionist/i.test(npc.role) ? { order: (item) => { interact.order(item); npc.ch.say(`One ${item.name.toLowerCase()}, coming up!`, 3); } } : {});
     else if (act.type === 'order') { interact.order(act.arg); npc.ch.say('Coming right up!', 3); }
   },
+  onGesture: (kind) => social.perform(kind),
 });
+const social = createSocial({ getPlayer: () => player, getNpcs: () => npcsList(), hud, chat });
 
 // ---------- load characters with a progress bar ----------
 const manager = new THREE.LoadingManager();
@@ -114,6 +125,7 @@ function startAs(kind) {
   player = new Player(scene, kind, kind === 'xbot' ? 'Rahul' : 'Aditi');
   player.enabled = true;
   player.onStand = () => interact.onStand();
+  player.onWave = () => social.perform('wave');
   hud.setTravel(travelTo);
   followCam.pos.copy(camera.position);
   hud.start();
@@ -140,6 +152,12 @@ function interactKey() {
   if (!player || chat.isOpen()) return;
   if (hud.escortOpen()) return;
   if (nearest?.hotspot === 'menu') { hud.showMenu(); return; }
+  if (nearest?.door) {
+    const d = nearest.door, opened = doors.toggle(d);
+    if (opened && player.mode === 'free') { player.yaw = player.ch.root.rotation.y; player.gesture('push'); }
+    hud.toast(opened ? `You open the door · ${d.label}` : `You close the door · ${d.label}`, 2);
+    return;
+  }
   if (nearest?.npc) {
     chat.open(nearest.npc);
     if (!nearest.npc.talkAt && player.mode === 'free') player.yaw = Math.atan2(nearest.npc.x - player.x, nearest.npc.z - player.z);
@@ -168,10 +186,11 @@ addEventListener('keydown', (e) => {
   else if (k === 'n') toggleNight();
   else if (k === 'l') toggleLabels();
   else if (k === 'h') toggleHelp();
+  else if (k === 'g') social.toggleMenu();
   else if (k === 'r') followCam.reset();
   else if (k === '+' || k === '=') followCam.zoom(0.88);
   else if (k === '-') followCam.zoom(1.12);
-  else if (k === 'escape') { if (!interact.closeDevice()) { chat.close(); hud.closePanel(); hud.closeEscort(); } }
+  else if (k === 'escape') { social.closeMenu(); if (!interact.closeDevice()) { chat.close(); hud.closePanel(); hud.closeEscort(); } }
   else if (/^[1-8]$/.test(k)) travelTo(CONFIG.zones.find((z) => z.id === CONFIG.travel[+k - 1]));
 });
 
@@ -223,7 +242,7 @@ addEventListener('resize', () => {
 const clock = new THREE.Clock();
 const fps = new FPSMeter();
 let t = 0, frame = 0, panelTimer = 0;
-const _v = new THREE.Vector3(), _d = new THREE.Vector3(), _pm = new THREE.Matrix4();
+const _v = new THREE.Vector3(), _d = new THREE.Vector3(), _v2 = new THREE.Vector3(), _pm = new THREE.Matrix4();
 const frustum = new THREE.Frustum(), _sphere = new THREE.Sphere(new THREE.Vector3(), 1.6);
 
 function zoneAt(x, z) { return CONFIG.zones.find((q) => x >= q.rect[0] && x <= q.rect[2] && z >= q.rect[1] && z <= q.rect[3]) || null; }
@@ -268,9 +287,9 @@ function simulate(dt) {
     if ((frame + i) % every === 0) { n.ch.update(n._acc); n._acc = 0; }
   }
 
-  // doors open for the player and anyone walking nearby
-  const actors = player ? [player, ...npcs.filter((n) => n.ch.speed > 0)] : npcs.filter((n) => n.ch.speed > 0);
-  updateDoors(arch.doors, actors, dt);
+  // sliding doors open for anyone nearby; room / kitchen doors only when someone opens them
+  const standing = npcs.filter((n) => n.standing);
+  doors.update(dt, player ? [player, ...standing] : standing);
   traffic.update(dt, t, player ? [player, ...npcs.filter((n) => n.pedestrian)] : npcs.filter((n) => n.pedestrian));
 
   if (started && player) {
@@ -296,8 +315,17 @@ function simulate(dt) {
     if (player.mode === 'free') {
       const it = interact.nearest(player);
       if (it && (!nearest || it.d < 0.9 || it.d < best * 0.6)) nearest = { item: it.item };
+      const d = doors.nearest(player);
+      if (d && (!nearest || d.target === 0 || nearest.item)) {
+        // a closed door right in front of you wins; an open one only if nothing else is closer
+        const dd = Math.hypot(d.x - player.x, d.z - player.z);
+        if (d.target === 0 || !nearest || dd < 1.0) nearest = { door: d };
+      }
     }
-    if (hud.escortOpen() || chat.isOpen()) hud.prompt(null);
+    // your head turns to the person you're about to talk to
+    player.ch.lookAt = nearest?.npc ? (nearest.npc.ch.bones.Head ? nearest.npc.ch.bones.Head.getWorldPosition(_v2) : _v2.set(nearest.npc.x, 1.6, nearest.npc.z)) : null;
+    if (hud.escortOpen() || chat.isOpen() || player.busy) hud.prompt(null);
+    else if (nearest?.door) hud.prompt(nearest.door.target ? `Close the door · ${nearest.door.label}` : `Open the door · ${nearest.door.label}`);
     else if (nearest?.hotspot === 'menu') hud.prompt('Read the Café Azure menu');
     else if (nearest?.npc) hud.prompt(`Chat with ${nearest.npc.name} · ${nearest.npc.role}` + (player.mode !== 'free' ? '<em>↑ stand up</em>' : ''));
     else if (nearest?.item) hud.prompt(nearest.item.label);
@@ -331,7 +359,7 @@ renderer.setAnimationLoop(loop);
 pauseWhenHidden(renderer, loop, clock);
 
 // expose a tiny debug handle (handy in DevTools)
-window.azureBay = { scene, renderer, camera, anchors: furn.anchors, interact, chat, get player() { return player; }, get npcs() { return npcsList(); }, travelTo: (id) => travelTo(CONFIG.zones.find((z) => z.id === id)), info: () => renderer.info.render,
+window.azureBay = { scene, renderer, camera, anchors: furn.anchors, interact, chat, doors, social, followCam, get cast() { return cast; }, get player() { return player; }, get npcs() { return npcsList(); }, travelTo: (id) => travelTo(CONFIG.zones.find((z) => z.id === id)), info: () => renderer.info.render,
   /** fast-forward the simulation (testing on slow machines): step(seconds) */
   step(seconds) { for (let s = 0; s < seconds; s += 0.05) simulate(0.05); },
   toggleNight };

@@ -190,8 +190,10 @@ export function buildArchitecture(scene, profile) {
   slider(-7, -20, 3);
   slider(7, -20, 3);
 
-  // swing doors: hotel rooms + kitchen
-  const swing = (hx, hz, w, closedRot, openDir, axis) => {
+  // swing doors: hotel rooms + kitchen. These are real doors: they stay shut until
+  // someone opens them (the player with E, staff and guests by reaching for the handle),
+  // block the doorway while closed and swing shut on their own after everyone has passed.
+  const swing = (hx, hz, w, closedRot, openDir, axis, label, room = null) => {
     const pivot = new THREE.Group();
     pivot.position.set(hx, 0, hz);
     const leaf = new THREE.Mesh(new THREE.BoxGeometry(w, 2.45, 0.06), M('darkWood'));
@@ -205,13 +207,19 @@ export function buildArchitecture(scene, profile) {
     dynamic.add(pivot);
     const cx = axis === 'x' ? hx + Math.cos(closedRot) * w / 2 : hx;
     const cz = axis === 'x' ? hz : hz - Math.sin(closedRot) * w / 2;
-    doors.push({ type: 'swing', pivot, closedRot, openRot: closedRot + openDir * Math.PI * 0.55, x: cx, z: cz, open: 0, range: 2.1 });
+    const d = { type: 'swing', pivot, closedRot, openRot: closedRot + openDir * Math.PI * 0.55, x: cx, z: cz, axis, w, label, room,
+      open: 0, target: 0, hold: 0, by: null, knocked: false, knockT: 0 };
+    // the doorway is solid while the door is shut (collision.js skips it once open)
+    const t = 0.09;
+    const blocker = axis === 'x' ? addBox(cx - w / 2, cx + w / 2, hz - t, hz + t, { cam: true, maxY: 2.5 }) : addBox(hx - t, hx + t, cz - w / 2, cz + w / 2, { cam: true, maxY: 2.5 });
+    blocker.door = d; d.blocker = blocker;
+    doors.push(d);
   };
-  doorsX.forEach((x) => {
-    swing(x - 0.6, -2, 1.2, 0, 1, 'x');            // north rooms, open inward (−z)
-    swing(x - 0.6, 2, 1.2, 0, -1, 'x');            // south rooms, open inward (+z)
+  doorsX.forEach((x, i) => {
+    swing(x - 0.6, -2, 1.2, 0, 1, 'x', `Room ${101 + i}`, 101 + i);    // north rooms, open inward (−z)
+    swing(x - 0.6, 2, 1.2, 0, -1, 'x', `Room ${104 + i}`, 104 + i);    // south rooms, open inward (+z)
   });
-  swing(-28, -5.2, 1.8, Math.PI / 2, -1, 'z');      // kitchen
+  swing(-28, -5.2, 1.8, Math.PI / 2, -1, 'z', 'Kitchen · staff only');
 
   // ---------- pool ----------
   const pool = { minX: -14, maxX: 14, minZ: -46, maxZ: -30, waterY: -0.25 };
@@ -289,16 +297,92 @@ function makeWater(pool) {
   return mesh;
 }
 
-/** Open doors when the player or any NPC is near. */
-export function updateDoors(doors, actors, dt) {
-  for (const d of doors) {
-    let near = false;
-    for (const a of actors) {
-      const dx = a.x - d.x, dz = a.z - d.z;
-      if (dx * dx + dz * dz < d.range * d.range) { near = true; break; }
-    }
-    d.open += ((near ? 1 : 0) - d.open) * Math.min(1, dt * 4);
-    if (d.type === 'slide') for (const p of d.panels) p.position.x = THREE.MathUtils.lerp(p.userData.closedX, p.userData.openX, d.open);
-    else d.pivot.rotation.y = THREE.MathUtils.lerp(d.closedRot, d.openRot, d.open);
+const ease = (t) => t * t * (3 - 2 * t);
+
+/**
+ * Doors.
+ *  • Sliding glass doors (entrance, pool) are automatic, as in any hotel.
+ *  • Swing doors (rooms, kitchen) open only on request: toggle() for the player,
+ *    gate() for people walking a route (they stop, reach for the handle, the door
+ *    swings open, they walk through, and it closes behind them).
+ */
+export function createDoors(doors) {
+  const swings = doors.filter((d) => d.type === 'swing');
+  // signed distance from the door plane, and position along the doorway
+  const planeOf = (d, x, z) => (d.axis === 'x' ? [z - d.z, x - d.x] : [x - d.x, z - d.z]);
+
+  function request(d, by) {
+    if (d.target === 1) { if (by === 'player') d.by = 'player'; return; }
+    d.target = 1; d.by = by; d.hold = by === 'player' ? 7 : 1.6;
   }
+
+  return {
+    doors, swings,
+    /** Player pressed E at a door. */
+    toggle(d) {
+      if (d.target === 1) { d.target = 0; d.by = null; return false; }
+      request(d, 'player'); return true;
+    },
+    /** The swing door the player is standing at (front or back), or null. */
+    nearest(p, max = 2.6) {
+      let best = null, bd = max;
+      for (const d of swings) {
+        const [n, t] = planeOf(d, p.x, p.z);
+        if (Math.abs(t) > d.w / 2 + 0.45 || Math.abs(n) > 1.3) continue;
+        // prefer the door you are facing over one behind you
+        let dd = Math.hypot(n, t);
+        if (p.yaw !== undefined) { const fx = Math.sin(p.yaw), fz = Math.cos(p.yaw); if ((d.x - p.x) * fx + (d.z - p.z) * fz < 0) dd += 1.2; }
+        if (dd < bd) { bd = dd; best = d; }
+      }
+      return best;
+    },
+    /**
+     * Called by a walking character (systems/routes.js). Returns true while the character
+     * must wait: room-service staff knock first, everyone reaches for the handle.
+     */
+    gate(ch, tx, tz) {
+      for (const d of swings) {
+        const [n0, t0] = planeOf(d, ch.x, ch.z), [n1, t1] = planeOf(d, tx, tz);
+        if (Math.abs(n0) > 1.7) continue;
+        const crosses = (n0 > 0.02 && n1 < -0.02) || (n0 < -0.02 && n1 > 0.02) || (Math.abs(n1) < 0.25 && Math.abs(n0) > 0.25);
+        if (!crosses) continue;
+        const tt = Math.abs(n1 - n0) > 1e-4 ? t0 + (t1 - t0) * (n0 / (n0 - n1)) : t0;
+        if (Math.abs(tt) > d.w / 2 + 0.35) continue;
+        if (d.open > 0.8) { d.hold = Math.max(d.hold, 1.6); return false; }
+        if (Math.abs(n0) > 1.25) return false;          // keep walking up to the door
+        // at the door
+        const npc = ch.npc;
+        if (d.target === 0 && npc?.job?.knock && !d.knocked) {
+          if (!(d.knockT > 0)) { d.knockT = 1.5; ch.gesture('knock'); ch.say(npc.job.knock, 2.6); d.onKnock?.(d, npc); }
+          return true;
+        }
+        if (d.target === 0) { request(d, 'npc'); if (!ch.gest) ch.gesture('push'); }
+        return true;
+      }
+      return false;
+    },
+    update(dt, actors) {
+      for (const d of doors) {
+        if (d.type === 'slide') {
+          let near = false;
+          for (const a of actors) { const dx = a.x - d.x, dz = a.z - d.z; if (dx * dx + dz * dz < d.range * d.range) { near = true; break; } }
+          d.open += ((near ? 1 : 0) - d.open) * Math.min(1, dt * 4);
+          for (const p of d.panels) p.position.x = THREE.MathUtils.lerp(p.userData.closedX, p.userData.openX, d.open);
+          continue;
+        }
+        if (d.knockT > 0) { d.knockT -= dt; if (d.knockT <= 0) d.knocked = true; }
+        if (d.target === 1) {
+          let near = false;
+          for (const a of actors) { const dx = a.x - d.x, dz = a.z - d.z; if (dx * dx + dz * dz < 2.1 * 2.1) { near = true; break; } }
+          if (near) d.hold = Math.max(d.hold, d.by === 'player' ? 7 : 1.6);
+          else { d.hold -= dt; if (d.hold <= 0) { d.target = 0; d.by = null; } }
+        } else if (d.open < 0.02 && d.wasOpen) { d.knocked = false; d.wasOpen = false; }
+        if (d.open > 0.5) d.wasOpen = true;
+        // a door swings at a human pace: ~0.9 s to open, ~1.2 s to close
+        const step = dt / (d.target ? 0.9 : 1.2);
+        d.open = THREE.MathUtils.clamp(d.open + (d.target ? step : -step), 0, 1);
+        d.pivot.rotation.y = THREE.MathUtils.lerp(d.closedRot, d.openRot, ease(d.open));
+      }
+    },
+  };
 }

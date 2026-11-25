@@ -42,6 +42,7 @@ export function buildFurniture(scene, profile) {
       const cx = tx + dx, cz = tz + dz;
       const yaw = yawTo(cx, cz, tx, tz);
       chairM.push(trs(cx, 0, cz, yaw));
+      addFootprint(cx, cz, 0.42, 0.42, { maxY: 0.95 });   // chairs are solid: walk around them, not through
       const px = tx + dx * 0.45, pz = tz + dz * 0.45;
       plateM.push(trs(px, 0, pz)); foodM.push(trs(px, 0, pz, Math.random() * 6));
       glassM.push(trs(px, 0, pz, yaw));
@@ -216,6 +217,7 @@ export function buildFurniture(scene, profile) {
       // desk under the window
       const wz = side * 19.4, cx = (a + b) / 2;
       deskMs.push(trs(cx + 0.2, 0, wz)); chairMs2.push(trs(cx + 0.2, 0, wz - side * 0.75, side < 0 ? Math.PI : 0));
+      addFootprint(cx + 0.2, wz - side * 0.75, 0.42, 0.42, { maxY: 0.95 });
       addBox(cx - 0.6, cx + 1.0, wz - 0.35, wz + 0.35, { maxY: 0.8 });
       // wardrobe near the door
       wardMs.push(trs(b - 0.45, 0, side * 4.2)); addBox(b - 0.75, b - 0.15, side * 4.2 - 0.8, side * 4.2 + 0.8);
@@ -312,7 +314,7 @@ export function buildFurniture(scene, profile) {
     instanced(g, [{ geometry: compose([[CylG(0.04, 0.05, 0.3, 8), null]]), material: new THREE.MeshStandardMaterial({ color: 0x3a8f5c, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.85 }) }], bottles, { cast: false });
     const stoolG = compose([[CylG(0.2, 0.2, 0.06, 14), trs(0, 0.78, 0)], [CylG(0.03, 0.03, 0.76, 6), trs(0, 0.38, 0)], [CylG(0.18, 0.2, 0.03, 12), trs(0, 0.015, 0)]]);
     const stools = [];
-    for (const x of [22.2, 23.8, 25.4, 27, 28.4]) { stools.push(trs(x, 0, -34.3)); anchors.barStools.push({ x, z: -34.25, yaw: 0, seatY: 0.8 }); }
+    for (const x of [22.2, 23.8, 25.4, 27, 28.4]) { stools.push(trs(x, 0, -34.3)); anchors.barStools.push({ x, z: -34.25, yaw: 0, seatY: 0.8 }); addFootprint(x, -34.3, 0.34, 0.34, { maxY: 0.85 }); }
     instanced(g, [{ geometry: stoolG, material: M('gold') }], stools);
     addBox(20.7, 29.3, -33.8, -26.8);
     anchors.bartender = { x: 25, z: -31.7, yaw: Math.PI };
@@ -357,6 +359,24 @@ export function buildFurniture(scene, profile) {
     anchors.benchSeats.push({ x: x + dx * Math.cos(yaw), z: z + Math.cos(yaw) * 0.05, yaw, seatY: 0.48 });
   }
 
+  // room-service pantry at the east end of the rooms corridor: a trolley with covered trays
+  {
+    const g = new THREE.Group(); g.position.set(35.35, 0, -1.25);
+    box(g, M('steel'), 0, 0.82, 0, 0.5, 0.03, 0.9);
+    box(g, M('steel'), 0, 0.3, 0, 0.5, 0.03, 0.9);
+    for (const [x, z] of [[-0.22, -0.42], [0.22, -0.42], [-0.22, 0.42], [0.22, 0.42]]) box(g, M('steel'), x, 0.42, z, 0.025, 0.84, 0.025);
+    box(g, M('linen'), 0, 0.84, 0, 0.52, 0.01, 0.92);
+    for (const z of [-0.22, 0.22]) {
+      const cl = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), M('steel'));
+      cl.position.set(0, 0.85, z); cl.castShadow = true; g.add(cl);
+    }
+    group.add(g); addFootprint(35.35, -1.25, 0.6, 1.0);
+    const tex = signTexture('Room Service', { w: 512, h: 96, bg: 'rgba(0,0,0,0)', fg: '#f3e3c0', font: '600 60px Marcellus, Georgia, serif' });
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.28), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+    sign.position.set(35.95, 2.2, -1.25); sign.rotation.y = -Math.PI / 2; dyn.add(sign);
+    anchors.roomService = { station: { x: 34.7, z: -1.25, yaw: Math.PI / 2 }, idle: { x: 34.5, z: 0.4, yaw: -Math.PI / 2 } };
+  }
+
   // guest computer in the lobby, against the east wall
   {
     boxFromTo(group, M('lightWood'), 8.95, 0.72, -9.3, 9.75, 0.77, -7.5);
@@ -367,6 +387,7 @@ export function buildFurniture(scene, profile) {
     const s = new THREE.Mesh(new THREE.PlaneGeometry(0.58, 0.36), M('screen')); s.position.set(9.455, 1.08, -8.4); s.rotation.y = -Math.PI / 2; dyn.add(s);
     instanced(group, [{ geometry: chairFrame, material: M('darkWood') }, { geometry: chairCushion, material: M('fabricNavy') }], [trs(8.45, 0, -8.4, Math.PI / 2)]);
     addBox(8.95, 9.75, -9.3, -7.5, { maxY: 0.8 });
+    addFootprint(8.45, -8.4, 0.42, 0.42, { maxY: 0.95 });
     const tex = signTexture('Guest computer', { w: 512, h: 96, bg: 'rgba(0,0,0,0)', fg: '#3a2b1c', font: '600 54px Manrope, sans-serif' });
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.26), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
     sign.position.set(9.74, 1.75, -8.4); sign.rotation.y = -Math.PI / 2; dyn.add(sign);

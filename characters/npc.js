@@ -3,7 +3,7 @@
 // fixed circuits and work loops, random pause lengths and conversation lines.
 import * as THREE from 'three';
 import { Character } from './character.js';
-import { Script, stepToward, turnToward, PathWalker, rand, pick } from '../systems/routes.js';
+import { Script, turnToward, PathWalker, rand, pick } from '../systems/routes.js';
 import { CONFIG } from '../config.js';
 import { dress as D } from './indian.js';
 
@@ -21,6 +21,9 @@ function makeTray() {
   return tray;
 }
 
+const _head = new THREE.Vector3();
+const PARTNER_OK = (n) => !n.swimmer && !n.ch.lie && !n.dancer;
+
 class NPC {
   constructor(scene, kind, opts) {
     if (opts.outfit?.sex) kind = rig(opts.outfit);
@@ -33,28 +36,144 @@ class NPC {
     this.speed = opts.speed ?? 1.3;
     this.zone = opts.zone;
     this.talkAt = opts.talkAt || null;   // for staff behind a counter: talk from the counter front
+    this.holdT = 0;                      // paused (facing the player) for a moment
+    this.jobs = [];                      // deliveries waiting (see startJob)
+    this.job = null;
+    this.lookPt = new THREE.Vector3();
     scene.add(this.ch.root);
   }
   get x() { return this.ch.x; } get z() { return this.ch.z; }
+  get standing() { return this.ch.pose.sit < 0.1 && !this.ch.lie && !this.swimmer; }
   talkPos() { return this.talkAt || this.ch; }
+  canPartner() { return PARTNER_OK(this) && !this.busyEscort; }
   /** Player pressed E nearby. */
   talk(player) {
     this.ch.say(pick(this.lines), 4.5);
     this.faceT = 2.5; this.facePlayer = player;
   }
+  /** Stop what you're doing for a moment and face the player. */
+  hold(player, secs = 3) {
+    this.holdT = Math.max(this.holdT, secs); this.facePlayer = player; this.faceT = Math.max(this.faceT || 0, secs);
+    if (this.standing && !this.dancer) { this.ch.setMove(0); this.ch.curV = 0; }
+  }
   /** Typed conversation started / ended (see ui/chat.js). Walkers stop and face you. */
   startChat(player) {
     this.chatting = true; this.facePlayer = player; this.faceT = 1e9;
-    if (this.ch.pose.sit < 0.1 && !this.ch.lie) { this.ch.play('idle'); this.ch.speed = 0; }
+    if (this.standing && !this.dancer) { this.ch.setMove(0); this.ch.curV = 0; }
   }
   endChat() { this.chatting = false; this.faceT = 0; this.ch.setPose('talk', 0); }
-  update(dt, ctx) {
-    if (this.script && !this.chatting) this.script.update(dt, ctx.blockers);
-    if (this.chatting && this.ch.speed > 0) { this.ch.play('idle'); this.ch.speed = 0; }
-    if (this.faceT > 0 && this.ch.pose.sit < 0.1 && !this.ch.lie && this.ch.speed === 0) {
-      this.faceT -= dt;
-      turnToward(this.ch, Math.atan2(this.facePlayer.x - this.ch.x, this.facePlayer.z - this.ch.z), dt, 5);
+
+  /**
+   * Respond to the player's gesture. Partner gestures (handshake, high five) get a
+   * matching move with the shared hand point; the rest get a friendly answer.
+   */
+  react(kind, player, opts = {}) {
+    const ch = this.ch;
+    this.hold(player, (opts.dur ?? 2.6) + 0.8);
+    const lines = {
+      wave: ['Hello!', 'Hi there!', 'Namaste!'], namaste: ['Namaste! 🙏', 'Namaste ji!', 'Namaskar! Welcome!'],
+      bow: ['Namaste! So kind of you.', 'Aap ka swagat hai!'], handshake: ['Pleasure to meet you!', 'Good to meet you!', 'Very nice to meet you!'],
+      highfive: ['Yes! High five!', 'Ayy! 🙌', 'Too good!'], clap: ['Thank you, thank you!', 'Haha, thanks!'],
+      cheer: ['Woohoo!', 'Let\'s go!'], laugh: ['Haha! 😄', 'Hahaha, good one!'], dance: ['Nice moves!', 'Wah! Dance on!', 'Bollywood star!'],
+      nod: ['Great!', 'Perfect.'], headshake: ['No? Okay, no problem.', 'Hmm, alright.'], shrug: ['Same here!', 'Who knows!'], think: ['Take your time.', 'Hmm…'],
+    };
+    const answer = { wave: 'wave', namaste: 'namaste', bow: 'namaste', clap: 'namaste', cheer: 'cheer', laugh: 'laugh', dance: 'clap', nod: 'nod', headshake: 'nod', shrug: 'shrug', think: 'nod', handshake: 'handshake', highfive: 'highfive' }[kind] || 'namaste';
+    let g = answer;
+    if ((g === 'handshake' || g === 'highfive') && !opts.point) g = 'namaste';
+    if (this.swimmer || ch.lie) g = kind === 'wave' ? 'wave' : 'nod';
+    if (g === 'cheer' && !this.standing) g = 'clap';
+    if (kind === 'dance' && this.standing && !/Security|Chef|Receptionist/.test(this.role) && Math.random() < 0.5) g = 'dance';
+    const run = () => {
+      ch.gesture(g, opts.point ? { point: opts.point, dur: opts.dur } : {});
+      if (g === 'dance') ch.say('Chalo, let\'s dance!', 3);
+      else ch.say(pick(lines[kind] || lines.namaste), 3);
+    };
+    // partners move together; otherwise answer after a human beat
+    if (opts.point) run(); else this.pending = { t: 0.35 + Math.random() * 0.3, run };
+  }
+
+  /**
+   * Deliver something. job = { pickup:{x,z,yaw}, prep (s), dest:()=>{x,z}, face:()=>{x,z},
+   *   carry (show tray), knock (text said at a closed door), say, onPickup, onDeliver }
+   */
+  startJob(job) { this.jobs.push(job); }
+
+  _runJob(dt, ctx) {
+    const J = this.job, ch = this.ch;
+    const go = (x, z, speed = 1.55) => {
+      if (!J.walker || J.walkTo[0] !== x || J.walkTo[1] !== z) { J.walker = new PathWalker(ch, [[x, z]], speed); J.walkTo = [x, z]; }
+      return J.walker.update(dt, ctx.blockers);
+    };
+    switch (J.stage) {
+      case 'start':
+        J.home = { x: ch.x, z: ch.z, yaw: ch.root.rotation.y };
+        J.trayWas = this.tray?.visible; J.carryWas = ch.poseT.carry;
+        ch.clearPoses(); if (this.tray) this.tray.visible = false;
+        J.stage = 'toPickup'; this.activity = J.activity || 'Fetching your order';
+        break;
+      case 'toPickup':
+        if (go(J.pickup.x, J.pickup.z)) { J.stage = 'prep'; J.t = J.prep ?? 3; ch.setPose(J.prepPose || 'stir', 1); this.activity = 'Preparing your order'; }
+        break;
+      case 'prep':
+        turnToward(ch, J.pickup.yaw, dt, 5);
+        J.t -= dt;
+        if (J.t <= 0) {
+          ch.setPose(J.prepPose || 'stir', 0);
+          if (J.carry !== false) { if (this.tray) this.tray.visible = true; ch.setPose('carry', 1); }
+          J.onPickup?.(this);
+          J.stage = 'toDest'; J.replan = 0; this.activity = `Bringing your ${J.what || 'order'}`;
+        }
+        break;
+      case 'toDest': {
+        const d = J.dest();
+        J.replan -= dt;
+        if (J.walker && J.replan <= 0 && Math.hypot(d.x - J.walkTo[0], d.z - J.walkTo[1]) > 1.2) J.walker = null;
+        if (J.replan <= 0) J.replan = 1.5;
+        if (go(d.x, d.z)) { J.stage = 'serve'; J.t = 0; }
+        break;
+      }
+      case 'serve': {
+        const f = J.face();
+        const ok = turnToward(ch, Math.atan2(f.x - ch.x, f.z - ch.z), dt, 6);
+        if (J.t === 0 && !ok) break;
+        if (J.t === 0) { ch.setPose('carry', 0); ch.gesture('serve'); ch.say(J.say || 'Here you are. Enjoy!', 3.5); }
+        J.t += dt;
+        if (J.t > 0.75 && !J.delivered) { J.delivered = true; if (this.tray) this.tray.visible = false; J.onDeliver?.(this); }
+        if (J.t > 1.8) { J.stage = 'return'; J.walker = null; this.activity = 'Heading back'; }
+        break;
+      }
+      case 'return':
+        if (go(J.home.x, J.home.z, 1.45)) {
+          if (this.tray) this.tray.visible = !!J.trayWas;
+          if (J.carryWas) ch.setPose('carry', J.carryWas);
+          this.job = null;
+          if (this.script && this.script.steps[this.script.i]?.pose) for (const q of [].concat(this.script.steps[this.script.i].pose)) ch.setPose(q, 1);
+        }
+        break;
     }
+  }
+
+  tickPending(dt) { if (this.pending && (this.pending.t -= dt) <= 0) { const r = this.pending.run; this.pending = null; r(); } }
+  update(dt, ctx) {
+    const ch = this.ch;
+    if (this.holdT > 0) this.holdT -= dt;
+    this.tickPending(dt);
+    if (!this.job && this.jobs.length && !this.chatting && this.holdT <= 0) { this.job = this.jobs.shift(); this.job.stage = 'start'; }
+    if (this.chatting || this.holdT > 0) {
+      if (this.standing && ch.speed > 0 && !this.dancer) { ch.curV = Math.max(0, (ch.curV || 0) - dt * 6); ch.setMove(ch.curV); }
+    } else if (this.job) this._runJob(dt, ctx);
+    else if (this.script) this.script.update(dt, ctx.blockers);
+    if (this.faceT > 0 && this.standing && !this.dancer && ch.speed < 0.05) {
+      this.faceT -= dt;
+      turnToward(ch, Math.atan2(this.facePlayer.x - ch.x, this.facePlayer.z - ch.z), dt, 5);
+    }
+    // look at the player when they are close and in front of us
+    const p = ctx.player;
+    const d = Math.hypot(p.x - ch.x, p.z - ch.z);
+    if (d < 3.6 && p.ch && !this.swimmer && !(ch.pose.type > 0.5 && d > 1.8)) {
+      p.ch.bones.Head ? p.ch.bones.Head.getWorldPosition(this.lookPt) : this.lookPt.set(p.x, 1.6, p.z);
+      ch.lookAt = this.lookPt;
+    } else ch.lookAt = null;
   }
 }
 
@@ -114,6 +233,7 @@ class Receptionist extends NPC {
   }
   update(dt, ctx) {
     const p = ctx.player, ch = this.ch;
+    this.tickPending(dt);
     switch (this.state) {
       case 'TYPING':
       case 'IDLE':
@@ -124,13 +244,13 @@ class Receptionist extends NPC {
         }
         if (this.playerNear(p) && !this.greeted) {
           this.greeted = true; this.setState('GREETING'); this.timer = 3.2;
-          ch.clearPoses(['sit']); ch.setPose('wave', 1);
+          ch.clearPoses(['sit']); ch.gesture('namaste');
           ch.say(`Welcome to ${CONFIG.name}! I'm Priya. Press E and I'll walk you anywhere.`, 6);
         }
         break;
       case 'GREETING':
         this.timer -= dt;
-        if (this.timer <= 0) { ch.setPose('wave', 0); ch.setPose('talk', 0.6); }
+        if (this.timer <= 0) ch.setPose('talk', 0.6);
         if (!this.playerNear(p) && this.timer < -1) { ch.setPose('talk', 0); this.setState('TYPING'); ch.setPose('type', 1); this.timer = rand(5, 8); }
         break;
       case 'STANDING':
@@ -143,9 +263,9 @@ class Receptionist extends NPC {
         break;
       case 'ESCORTING': {
         const d = Math.hypot(p.x - ch.x, p.z - ch.z);
-        if (d > 5.5) { this.setState('WAITING'); ch.play('idle'); ch.speed = 0; ch.say('This way! I\'ll wait for you.', 3); break; }
+        if (d > 5.5) { this.setState('WAITING'); ch.setMove(0); ch.curV = 0; ch.say('This way! I\'ll wait for you.', 3); break; }
         if (this.walker.update(dt, [p])) {
-          this.setState('ARRIVED'); this.timer = 4.5; ch.play('idle');
+          this.setState('ARRIVED'); this.timer = 4.5; ch.setMove(0);
           ch.setPose('talk', 1); ch.say(this.dest.arrive, 5);
           this.hud.toast(`Priya escorted you to ${this.dest.label}`);
         }
@@ -176,6 +296,8 @@ class Receptionist extends NPC {
         break;
     }
     if (!this.playerNear(p) && ['TYPING', 'IDLE'].includes(this.state) && Math.hypot(p.x - this.a.front.x, p.z - this.a.front.z) > 7) this.greeted = false;
+    this.busyEscort = !['TYPING', 'IDLE', 'GREETING', 'SITTING'].includes(this.state);
+    if (Math.hypot(p.x - ch.x, p.z - ch.z) < 4 && p.ch?.bones.Head) { p.ch.bones.Head.getWorldPosition(this.lookPt); ch.lookAt = this.lookPt; } else ch.lookAt = null;
   }
 }
 
@@ -183,6 +305,7 @@ class Receptionist extends NPC {
 class Swimmer extends NPC {
   constructor(scene, kind, opts, laneZ, x0, x1) {
     super(scene, kind, opts);
+    this.swimmer = true;
     this.laneZ = laneZ; this.x0 = x0; this.x1 = x1; this.dir = 1; this.v = rand(0.8, 1.15);
     const ch = this.ch;
     ch.root.position.set(rand(x0, x1), -0.42, laneZ);
@@ -194,6 +317,7 @@ class Swimmer extends NPC {
   talk() { this.ch.say(pick(this.lines), 3); }
   update(dt) {
     const ch = this.ch;
+    this.tickPending(dt);
     if (this.rest > 0) { this.rest -= dt; if (this.rest <= 0) { this.dir *= -1; ch.setPose('swim', 1); } ch.root.rotation.y += ((this.dir > 0 ? Math.PI / 2 : -Math.PI / 2) - ch.root.rotation.y) * Math.min(1, dt * 2); return; }
     ch.root.rotation.y = this.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
     ch.root.position.x += this.dir * this.v * dt;
@@ -270,7 +394,7 @@ export function createCast(scene, anchors, profile, hud) {
 
   // waiter with a tray: pass window → table → back
   const sameer = add(new NPC(scene, 'xbot', P('Sameer', 'Waiter', D.kurta({ main: 0xfaf7f0, bottom: 0xfaf7f0, vest: 0x7b1e3a, mustache: true, skin: 'medium' }), { zone: 'cafe', speed: 1.5, lines: ['Can I get you anything?', 'Today\'s special is the Goan prawn curry.', 'Your table will be ready in a moment.'] })), true);
-  const tray = makeTray(); sameer.ch.root.add(tray);
+  const tray = makeTray(); sameer.ch.root.add(tray); sameer.tray = tray;
   sameer.ch.root.position.set(-27.2, 0, -12.5);
   const sameerSteps = [];
   for (const [tx, tz] of [[-19.5, -8], [-14, 8], [-25, 14.5], [-19.5, -14.5], [-25, -8], [-14, 14.5]]) {
@@ -347,6 +471,18 @@ export function createCast(scene, anchors, profile, hud) {
   }
   lata.script = new Script(lata, cleanSteps);
 
+  // room service: waits at the pantry trolley at the end of the corridor, brings orders to the rooms
+  const RS = anchors.roomService;
+  const vikram = add(new NPC(scene, 'xbot', P('Vikram', 'Room Service', D.kurta({ main: 0xfaf7f0, bottom: 0xfaf7f0, vest: 0x8b1538, mustache: true, skin: 'wheat' }), { zone: 'rooms', speed: 1.5, lines: ['Room service, 24 hours! Order from the laptop in your room.', 'Hungry? The butter chicken is very popular.'] })), true);
+  const tray3 = makeTray(); vikram.ch.root.add(tray3); vikram.tray = tray3;
+  vikram.ch.root.position.set(RS.idle.x, 0, RS.idle.z); vikram.ch.root.rotation.y = RS.idle.yaw;
+  vikram.script = new Script(vikram, [
+    { wait: [6, 10], face: RS.idle.yaw, activity: 'Waiting for room-service orders' },
+    { path: [[RS.station.x, RS.station.z]], speed: 0.9, activity: 'Checking the trolley' },
+    { wait: [3, 5], face: RS.station.yaw, pose: 'stir', activity: 'Setting a tray' },
+    { path: [[RS.idle.x, RS.idle.z]], speed: 0.9 },
+  ]);
+
   // ===================== POOL =====================
   add(new Swimmer(scene, 'xbot', P('Arnav', 'Swimmer', D.swim({ bottom: 0x1565c0, skin: 'medium' }), { zone: 'pool', lines: ['The water is perfect!'] }), -36, -12, 12), true);
   add(new Swimmer(scene, 'michelle', P('Riya', 'Swimmer', D.swimF({ main: 0xe84393, skin: 'wheat' }), { zone: 'pool', lines: ['Race you to the end!'] }), -40, -11, 11));
@@ -379,11 +515,11 @@ export function createCast(scene, anchors, profile, hud) {
   // dancer on the stage
   const ananya = add(new NPC(scene, 'michelle', P('Ananya', 'Dancer', D.lehenga({ main: 0xc2185b, second: 0xffc107, blouse: 0xc2185b, dupatta: 0xffd54f, mehndi: true, payal: true, nath: true, skin: 'wheat' }), { zone: 'poolbar', lines: ['Come dance with us!', 'Bollywood night every evening by the pool!'] })), true);
   ananya.ch.root.position.set(anchors.stage.x, 0.31, anchors.stage.z); ananya.ch.root.rotation.y = -Math.PI * 0.8;
-  ananya.ch.play('dance', 0); ananya.activity = 'Dancing to Bollywood hits';
+  ananya.dancer = true; ananya.ch.play('dance'); ananya.activity = 'Dancing to Bollywood hits';
 
   // pool server (was a robot): bar → loungers → bar, with a tray of drinks
   const mohan = add(new NPC(scene, 'xbot', P('Mohan', 'Pool Server', D.kurta({ main: 0xffffff, bottom: 0xffffff, vest: 0x1f6f8b, skin: 'dusky' }), { zone: 'pool', speed: 1.2, lines: ['Your tender coconut, madam.', 'Fresh nimbu pani, sir?', 'Have a refreshing day!'] })), true);
-  const tray2 = makeTray(); mohan.ch.root.add(tray2);
+  const tray2 = makeTray(); mohan.ch.root.add(tray2); mohan.tray = tray2;
   mohan.ch.root.position.set(25, 0, -35.5);
   const trayOn = (v) => (n) => { tray2.visible = v; n.ch.setPose('carry', v ? 1 : 0); };
   mohan.script = new Script(mohan, [
@@ -435,5 +571,6 @@ export function createCast(scene, anchors, profile, hud) {
     ]);
   }
 
-  return { npcs, priya };
+  const couriers = { cafe: sameer, pool: mohan, bar: joseph, rooms: vikram };
+  return { npcs, priya, couriers };
 }

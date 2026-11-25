@@ -4,10 +4,11 @@
 // activity bar offers what makes sense there (order food, use the laptop, watch TV…).
 import * as THREE from 'three';
 import { CHANNELS } from '../scene/furniture.js';
+import { walkable } from './nav.js';
 
 const $ = (id) => document.getElementById(id);
 
-export function createInteractions({ scene, furn, hud, getPlayer, getNpcs, toggleNight, isNight }) {
+export function createInteractions({ scene, furn, hud, getPlayer, getNpcs, getCouriers = () => ({}), toggleNight, isNight }) {
   const A = furn.anchors;
   const items = [];
   const add = (it) => { it.x ??= it.a.x; it.z ??= it.a.z; items.push(it); return it; };
@@ -60,11 +61,8 @@ export function createInteractions({ scene, furn, hud, getPlayer, getNpcs, toggl
       hud.toast(it.tv.on ? `TV on: ${CHANNELS[it.tv.channel]}` : 'TV off');
       return;
     }
-    hud.fade(() => {
-      p.sitOn(it.a, it.type === 'lie');
-      current = it;
-      showBar();
-    }, 0.6);
+    // walk to it, turn round and sit / lie down (no screen fade: you see it happen)
+    p.sitOn(it.a, it.type === 'lie', () => { current = it; showBar(); });
   }
 
   function roomTV() { return current?.room ? A.rooms[current.room].tv : null; }
@@ -95,9 +93,9 @@ export function createInteractions({ scene, furn, hud, getPlayer, getNpcs, toggl
         if (p.mode === 'lying') {
           list.push({ label: 'Sleep', run: sleep });
           list.push(...tvBtns());
-          list.push({ label: 'Sit up', run: () => { p.sitOn(A.rooms[it.room].bedEdge); showBar(); } });
+          list.push({ label: 'Sit up', run: () => { $('activity').hidden = true; p.sitOn(A.rooms[it.room].bedEdge, false, showBar); } });
         } else {
-          list.push({ label: 'Lie down', run: () => { const bl = A.rooms[it.room].bedLie; if (isFree(bl)) { p.sitOn(bl, true); showBar(); } else hud.toast('Someone is already lying there'); } });
+          list.push({ label: 'Lie down', run: () => { const bl = A.rooms[it.room].bedLie; if (isFree(bl)) { $('activity').hidden = true; p.sitOn(bl, true, showBar); } else hud.toast('Someone is already lying there'); } });
           list.push(...tvBtns());
         }
         break;
@@ -134,23 +132,18 @@ export function createInteractions({ scene, furn, hud, getPlayer, getNpcs, toggl
   }
 
   // ---------------- orders ----------------
+  // Every order is carried by a real person: the waiter from the kitchen pass (café),
+  // the bartender (pool bar), the pool server (loungers) or room service (rooms). They
+  // walk over with a tray, knock and open your room door, serve you and walk back.
   const plateMat = new THREE.MeshStandardMaterial({ color: 0xf5f3ee, roughness: 0.4 });
   const foodMat = new THREE.MeshStandardMaterial({ color: 0xd9822b, roughness: 0.8 });
   const drinkMat = new THREE.MeshStandardMaterial({ color: 0xf3c04f, roughness: 0.3, transparent: true, opacity: 0.9 });
-  function placeOrder(item) {
-    const isDrink = /lassi|chai|soda|coconut|cooler/i.test(item.name);
-    orders.push({ item, t: isDrink ? 6 : 10, isDrink });
-    hud.toast(`Order placed: ${item.name} · ₹${item.price}. ${isDrink ? 'Coming right up!' : 'It will be with you shortly.'}`, 4);
-    hud.closePanel();
-  }
-  function deliver(o) {
-    const p = getPlayer();
-    hud.toast(`Your ${o.item.name.toLowerCase()} has arrived. Enjoy!`, 4);
-    if (!p || p.mode === 'free' || !current) return;
-    const a = current.a;
-    const surf = { cafe: 0.79, bar: 1.17, desk: 0.79, computer: 0.78 }[current.where];
+  const isDrinkName = (n) => /lassi|chai|soda|coconut|cooler|coffee|tea|juice|water|chaas/i.test(n);
+  let handProp = null;
+
+  function makeProp(isDrink) {
     const g = new THREE.Group();
-    if (o.isDrink) {
+    if (isDrink) {
       const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.034, 0.13, 12), drinkMat); cup.position.y = 0.065; g.add(cup);
     } else {
       const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.02, 18), plateMat); plate.position.y = 0.01;
@@ -158,12 +151,110 @@ export function createInteractions({ scene, furn, hud, getPlayer, getNpcs, toggl
       g.add(plate, food);
     }
     g.traverse((m) => { m.castShadow = true; });
-    if (surf) {
-      const reach = current.where === 'bar' ? 0.5 : 0.42;
-      g.position.set(a.x + Math.sin(a.yaw) * reach, surf, a.z + Math.cos(a.yaw) * reach);
-    } else g.position.set(a.x + Math.sin(a.yaw + 1.4) * 0.5, 0.45, a.z + Math.cos(a.yaw + 1.4) * 0.5);
-    scene.add(g); props.push(g);
-    p.ch.setPose('eat', 1); showBar();
+    return g;
+  }
+
+  /** Where the server stands, what they face, and where the plate goes, for a seat. */
+  function serveSpot(it) {
+    const a = it.a, fw = [Math.sin(a.yaw), Math.cos(a.yaw)], rt = [Math.cos(a.yaw), -Math.sin(a.yaw)];
+    const pick = (cands) => cands.find(([x, z]) => walkable(x, z)) || cands[0];
+    const seatFace = { x: a.x, z: a.z };
+    switch (it.where) {
+      case 'cafe': {
+        const T = a.table, dx = a.x - T.x, dz = a.z - T.z, d = Math.hypot(dx, dz) || 1;
+        const c = [1, -1].map((s) => { const ang = Math.atan2(dx, dz) + s * Math.PI / 4; return [T.x + Math.sin(ang) * 1.45, T.z + Math.cos(ang) * 1.45]; });
+        const [x, z] = pick(c);
+        return { stand: { x, z }, face: { x: T.x, z: T.z }, place: [a.x - dx / d * 0.42, 0.79, a.z - dz / d * 0.42] };
+      }
+      case 'bar': return { stand: { x: a.x, z: -32.2 }, face: seatFace, place: [a.x, 1.17, a.z + 0.5] };
+      case 'computer': return { stand: { x: a.x - 0.2, z: a.z + 0.75 }, face: seatFace, place: [a.x + 0.58, 0.78, a.z + 0.38] };
+      case 'desk': {
+        const [x, z] = pick([[a.x + rt[0] * 0.75 - fw[0] * 0.2, a.z + rt[1] * 0.75 - fw[1] * 0.2], [a.x - rt[0] * 0.75 - fw[0] * 0.2, a.z - rt[1] * 0.75 - fw[1] * 0.2]]);
+        return { stand: { x, z }, face: seatFace, place: [a.x + fw[0] * 0.42 + rt[0] * 0.45, 0.79, a.z + fw[1] * 0.42 + rt[1] * 0.45] };
+      }
+      case 'bed': {
+        const R = A.rooms[it.room], bs = R.bedSide;
+        return { stand: { x: bs.x, z: bs.z }, face: { x: R.bedEdge.x, z: R.bedEdge.z }, place: [R.bedEdge.x - 0.2, 0.68, R.bedEdge.z + (R.bedEdge.z > 0 ? -0.6 : 0.6)] };
+      }
+      case 'armchair': {
+        const [x, z] = pick([[a.x + fw[0] * 0.95, a.z + fw[1] * 0.95], [a.x + rt[0] * 0.9, a.z + rt[1] * 0.9]]);
+        return { stand: { x, z }, face: seatFace, place: [a.x + rt[0] * 0.33, 0.66, a.z + rt[1] * 0.33] };
+      }
+      case 'lounger': {
+        const [x, z] = pick([[a.x + rt[0] * 0.95, a.z + rt[1] * 0.95], [a.x - rt[0] * 0.95, a.z - rt[1] * 0.95]]);
+        return { stand: { x, z }, face: seatFace, place: [a.x + Math.sin(a.yaw + 1.4) * 0.55, 0.42, a.z + Math.cos(a.yaw + 1.4) * 0.55] };
+      }
+      default: {
+        const [x, z] = pick([[a.x + fw[0] * 0.95, a.z + fw[1] * 0.95], [a.x + rt[0] * 0.9, a.z + rt[1] * 0.9], [a.x - rt[0] * 0.9, a.z - rt[1] * 0.9]]);
+        return { stand: { x, z }, face: seatFace, place: null };   // handed over
+      }
+    }
+  }
+
+  function placeOrder(item) {
+    const p = getPlayer(); if (!p) return;
+    const isDrink = isDrinkName(item.name);
+    const it = p.mode !== 'free' ? current : null;
+    const inRooms = it?.room || (p.x > 10 && p.x < 36 && Math.abs(p.z) < 20);
+    const kind = it?.where === 'bar' ? 'bar' : it?.where === 'lounger' || (!it && p.z < -20) ? 'pool' : inRooms ? 'rooms' : 'cafe';
+    const C = getCouriers(), npc = C[kind];
+    const room = it?.room || (inRooms ? roomAt(p.x, p.z) : null);
+    const sir = p.ch.outfit?.sex === 'f' ? 'madam' : 'sir';
+    const what = item.name.toLowerCase();
+    hud.closePanel();
+    if (!npc) { orders.push({ item, t: isDrink ? 6 : 10, isDrink }); hud.toast(`Order placed: ${item.name} · ₹${item.price}`, 4); return; }
+    const spot = it ? serveSpot(it) : null;
+    const ahead = () => { const q = getPlayer(); const dx = npc.x - q.x, dz = npc.z - q.z, d = Math.hypot(dx, dz) || 1; return { x: q.x + dx / d * 0.95, z: q.z + dz / d * 0.95 }; };
+    const pickups = {
+      cafe: { x: -27.2, z: -12.5, yaw: -Math.PI / 2 },
+      bar: { x: 25, z: -31.2, yaw: 0 },
+      pool: { x: 25, z: -35.5, yaw: 0 },
+      rooms: { ...A.roomService.station },
+    };
+    const prep = kind === 'rooms' ? (isDrink ? 6 : 9) : isDrink ? 4 : 8;
+    npc.startJob({
+      what, pickup: pickups[kind], prep, prepPose: kind === 'cafe' ? 'look' : 'stir',
+      carry: kind !== 'bar',
+      knock: kind === 'rooms' ? 'Knock knock! Room service!' : null,
+      activity: `Getting your ${what}`,
+      dest: () => (spot ? spot.stand : ahead()),
+      face: () => (spot ? spot.face : getPlayer()),
+      say: pickSay(item.name, sir),
+      onPickup: () => hud.toast(`${npc.name} is bringing your ${what}${room ? ` to Room ${room}` : ''}.`, 3.5),
+      onDeliver: () => {
+        const q = getPlayer();
+        const g = makeProp(isDrink);
+        if (spot?.place) { g.position.set(...spot.place); scene.add(g); props.push(g); }
+        else if (q) {
+          // handed over: you hold it
+          if (handProp) { q.ch.detach(handProp); scene.remove(handProp); }
+          handProp = g; scene.add(g); q.ch.attach(g, 'RightHand', new THREE.Vector3(0, -0.04, 0));
+          setTimeout(() => { if (handProp === g) { q.ch.detach(g); scene.remove(g); handProp = null; } }, 45000);
+        }
+        hud.toast(`${npc.name} served your ${what}. Enjoy!`, 4);
+        if (q && q.mode !== 'free' && current === it && (it.where === 'cafe' || it.where === 'bar')) { q.ch.setPose('eat', 1); showBar(); }
+      },
+    });
+    const where = room ? `to Room ${room}` : it?.where === 'cafe' ? 'to your table' : 'to you';
+    hud.toast(`Order placed: ${item.name} · ₹${item.price}. ${npc.name} will bring it ${where}.`, 4);
+  }
+  const pickSay = (name, sir) => {
+    const n = name.toLowerCase();
+    return [`Your ${n}, ${sir}. Enjoy!`, `Here is your ${n}, ${sir}. Careful, it's fresh!`, `One ${n} for you, ${sir}!`][Math.floor(Math.random() * 3)];
+  };
+  function roomAt(x, z) {
+    const xs = [[10, 18.67], [18.67, 27.33], [27.33, 36]];
+    const i = xs.findIndex(([a, b]) => x >= a && x < b);
+    if (i < 0 || Math.abs(z) < 2) return null;
+    return z < 0 ? 101 + i : 104 + i;
+  }
+  // fallback (no courier available on this quality level)
+  function deliver(o) {
+    const p = getPlayer();
+    hud.toast(`Your ${o.item.name.toLowerCase()} has arrived. Enjoy!`, 4);
+    if (!p || p.mode === 'free' || !current) return;
+    const spot = serveSpot(current), g = makeProp(o.isDrink);
+    if (spot.place) { g.position.set(...spot.place); scene.add(g); props.push(g); }
   }
 
   // ---------------- laptop / computer ----------------
@@ -213,7 +304,6 @@ export function createInteractions({ scene, furn, hud, getPlayer, getNpcs, toggl
   function onStand() {
     current = null; $('activity').hidden = true;
     const d = $('device'); if (!d.hidden) d.closeDevice?.();
-    for (const g of props) scene.remove(g); props = [];
   }
 
   return {
@@ -223,6 +313,9 @@ export function createInteractions({ scene, furn, hud, getPlayer, getNpcs, toggl
     order: placeOrder,
     update(dt) {
       for (let i = orders.length - 1; i >= 0; i--) { orders[i].t -= dt; if (orders[i].t <= 0) { deliver(orders[i]); orders.splice(i, 1); } }
+      // the staff clear plates once you have left the table
+      const p = getPlayer();
+      if (p && props.length) props = props.filter((g) => { if (Math.hypot(g.position.x - p.x, g.position.z - p.z) > 14) { scene.remove(g); return false; } return true; });
     },
   };
 }
