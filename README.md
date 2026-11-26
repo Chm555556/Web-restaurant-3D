@@ -45,7 +45,7 @@ no backend.
   <tr>
     <td align="center" width="25%"><h2>51</h2><sub>people with their own routines</sub></td>
     <td align="center" width="25%"><h2>108</h2><sub>chairs, beds, TVs and laptops you can use</sub></td>
-    <td align="center" width="25%"><h2>9</h2><sub>zones from the street to the beach</sub></td>
+    <td align="center" width="25%"><h2>10</h2><sub>zones, from the street and the park to the beach</sub></td>
     <td align="center" width="25%"><h2>0</h2><sub>build steps, servers or API keys</sub></td>
   </tr>
 </table>
@@ -195,6 +195,35 @@ takes two draw calls: one for cloth and skin, one for gold.
 TV channels are drawn live into a canvas texture: *Cricket Live*, *Bollywood Music*,
 *India News*, *Nature HD* and *Azure Bay TV*.
 
+### Azure Gardens, the park
+
+<p align="center">
+  <img src="docs/media/park.jpg" alt="Azure Gardens: the entrance arch, the Vortex at night, the cherry blossom grove and the voxel garden" width="100%">
+  <br><sub>The entrance arch, the Vortex at night, the cherry blossom grove and the voxel garden.</sub>
+</p>
+
+A small park on the west lawn, beside the entrance plaza. Walk through the arch in the
+plaza hedge, or in from Ocean Drive through the street gate (or press <kbd>9</kbd>). Sit
+on any of the ten benches (press <kbd>E</kbd>). Priya can walk you there too.
+
+| | |
+|---|---|
+| **Meadow in the wind** | Thousands of grass clumps roll in gusts that sweep across the park, and part around you (and anyone else) as you walk through. |
+| **Cherry blossom grove** | Three trees grown from code (branching limbs, clusters of blossom) that sway in the wind and shed petals. The petals flutter down and settle on a carpet of fallen petals. |
+| **Bluebell beds** | Nodding bluebells on arching stems. At night they glow blue, and fireflies drift over them. |
+| **The Vortex** | A light sculpture over a fountain basin: a funnel of spinning particle strands, comets racing up it and a pulse that climbs the funnel. It glows brightest after dark. |
+| **Voxel garden** | Raised beds of cube grass and cube flowers, cube topiary trees, and blocky clouds drifting over the park. |
+| **Shade tree** | A broad tree with a rope swing rocking under it, and a bench in its shade. |
+| **Day and night** | Press <kbd>N</kbd>: the lanterns along the paths light up, the bluebells glow, the fireflies come out and the Vortex shines. |
+
+People live here too. Meenakshi and Arvind chat on a bench by the Vortex. Ira reads under
+the cherry blossoms. Farhan and Zoya stroll round the meadow, and Gopal the gardener
+waters the bluebells and checks the voxel beds. Everything moves on the GPU from one wind
+clock, so the whole park is about twenty draw calls ([`scene/park.js`](scene/park.js)).
+The park's look was inspired by animated backgrounds on Originkit (wind-blown grass,
+cherry petals, glowing bluebells, a day-to-night meadow, a voxel meadow and a particle
+vortex). It is an original 3D build; no Originkit code is used.
+
 ### Real doors, real deliveries
 
 - **Doors.** The room and kitchen doors stay shut until someone opens them. Walk up and
@@ -289,7 +318,7 @@ point you to the waiter.
 | First-person view | <kbd>C</kbd> |
 | Day / night | <kbd>N</kbd> |
 | Name labels | <kbd>L</kbd> |
-| Quick travel | <kbd>1</kbd> – <kbd>8</kbd> |
+| Quick travel | <kbd>1</kbd> – <kbd>9</kbd> (9 is Azure Gardens) |
 | Reset camera | <kbd>R</kbd> |
 | Open / close a room or kitchen door | <kbd>E</kbd> |
 | Gestures (namaste, handshake, high five…) | <kbd>G</kbd> |
@@ -408,6 +437,7 @@ including the shadow pass. Models and textures total **3.5 MB**, and Three.js ad
 │   ├── architecture.js     Building shell, walls, pool, signs, doors (sliding + real swing doors)
 │   ├── furniture.js        Furniture, TVs and channels, laptops, guest computer, anchors
 │   ├── neighbourhood.js    Street, city blocks, beach, boats
+│   ├── park.js             Azure Gardens: wind grass, cherry trees, bluebells, the Vortex
 │   ├── environment.js      Sky, three-light setup, fog, day / night
 │   ├── materials.js        Shared material cache and generated textures
 │   └── helpers.js          Instancing, static batching, geometry helpers
@@ -535,7 +565,7 @@ Almost everything a non-programmer might change lives in [`config.js`](config.js
 | Change | Where |
 |---|---|
 | Resort name, tagline, zones and their descriptions | `CONFIG.name`, `CONFIG.zones` |
-| Quick-travel order (keys 1–8) | `CONFIG.travel` |
+| Quick-travel order (keys 1–9) | `CONFIG.travel` |
 | Where Priya can escort you, and what she says on arrival | `CONFIG.escort` |
 | Café menu and prices (₹) | `CONFIG.menu` |
 | Wi-Fi, opening hours, events and weather used in chat | `CONFIG.info` |

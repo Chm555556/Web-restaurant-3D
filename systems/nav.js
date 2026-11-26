@@ -5,7 +5,7 @@
 import { colliders } from './collision.js';
 
 const CELL = 0.35, R = 0.3;                         // cell size, body radius
-const X0 = -40, X1 = 40, Z0 = -62, Z1 = 40;
+const X0 = -82, X1 = 40, Z0 = -62, Z1 = 40;          // includes Azure Gardens on the west lawn
 const NX = Math.ceil((X1 - X0) / CELL), NZ = Math.ceil((Z1 - Z0) / CELL);
 
 let blocked = null;

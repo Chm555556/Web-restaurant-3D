@@ -71,18 +71,21 @@ export function buildNeighbourhood(scene, profile) {
   }
   // garden hedges marking the resort boundary
   const hedge = M('leafDark');
-  boxFromTo(group, hedge, -42, 0, -62, -41, 1.3, 33.5);
+  // the west hedge has a gap into Azure Gardens (scene/park.js)
+  boxFromTo(group, hedge, -42, 0, -62, -41, 1.3, 22.7);
+  boxFromTo(group, hedge, -42, 0, 28.3, -41, 1.3, 33.5);
   boxFromTo(group, hedge, 41, 0, -62, 42, 1.3, 33.5);
   boxFromTo(group, hedge, -42, 0, 33, -8, 0.9, 33.6);
   boxFromTo(group, hedge, 8, 0, 33, 42, 0.9, 33.6);
 
   // world limits
-  addBox(-42, -41, -62, 33.5); addBox(41, 42, -62, 33.5);
+  addBox(-42, -41, -62, 22.7); addBox(-42, -41, 28.3, 33.5); addBox(41, 42, -62, 33.5);
   addBox(-42, -8, 33, 33.6, { maxY: 0.9 }); addBox(8, 42, 33, 33.6, { maxY: 0.9 });
   addBox(-500, 500, -600, -71.5);            // ocean
   addBox(-500, 500, 52.2, 600);              // buildings across the street
   addBox(-91, -90, 33.5, 52.2); addBox(90, 91, 33.5, 52.2);
-  addBox(-91, -42, -72, 33.5); addBox(42, 91, -72, 33.5);   // fenced private land beside the resort
+  // fenced private land beside the resort (the west lawn north of z = -19.6 is the park)
+  addBox(-91, -80.6, -72, 33.5); addBox(-80.6, -42, -72, -19.6); addBox(42, 91, -72, 33.5);
   // decorative fence along beach sides
   boxFromTo(group, M('lightWood'), -42, 0, -71.5, -41.8, 1.0, -62);
   boxFromTo(group, M('lightWood'), 41.8, 0, -71.5, 42, 1.0, -62);

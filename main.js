@@ -8,6 +8,7 @@ import { createEnvironment, wind } from './scene/environment.js';
 import { buildArchitecture, createDoors } from './scene/architecture.js';
 import { buildFurniture } from './scene/furniture.js';
 import { buildNeighbourhood } from './scene/neighbourhood.js';
+import { buildPark } from './scene/park.js';
 import { staticBatch } from './scene/helpers.js';
 import { loadCharacters, loadPeople } from './characters/loader.js';
 import { createCast } from './characters/npc.js';
@@ -60,7 +61,8 @@ const env = createEnvironment(scene, renderer, profile);
 const arch = buildArchitecture(scene, profile);
 const furn = buildFurniture(scene, profile);
 const hood = buildNeighbourhood(scene, profile);
-staticBatch(arch.group); staticBatch(furn.group); staticBatch(hood.group);
+const park = buildPark(scene, profile, furn.anchors);   // Azure Gardens, on the west lawn
+staticBatch(arch.group); staticBatch(furn.group); staticBatch(hood.group); staticBatch(park.group);
 // walkable grid for people (waiters, room service) + real doors they knock on and open
 buildNav();
 const doors = createDoors(arch.doors);
@@ -70,7 +72,7 @@ world.walkable = walkable;
 const traffic = createTraffic(scene, profile);
 
 env.onNight((n) => {
-  furn.setNight(n); hood.setNight(n); traffic.setNight(n);
+  furn.setNight(n); hood.setNight(n); park.setNight(n); traffic.setNight(n);
   arch.water.material.uniforms.uNight.value = n;
   arch.dynamic.traverse((o) => { if (o.userData.signMat) o.userData.signMat.emissiveIntensity = 0.15 + n * 0.9; });
 });
@@ -195,7 +197,7 @@ addEventListener('keydown', (e) => {
   else if (k === '+' || k === '=') followCam.zoom(0.88);
   else if (k === '-') followCam.zoom(1.12);
   else if (k === 'escape') { social.closeMenu(); if (!interact.closeDevice()) { chat.close(); hud.closePanel(); hud.closeEscort(); } }
-  else if (/^[1-8]$/.test(k)) travelTo(CONFIG.zones.find((z) => z.id === CONFIG.travel[+k - 1]));
+  else if (/^[1-9]$/.test(k)) travelTo(CONFIG.zones.find((z) => z.id === CONFIG.travel[+k - 1]));
 });
 
 const raycaster = new THREE.Raycaster();
@@ -269,6 +271,8 @@ function simulate(dt) {
   if (frame % 6 === 0) furn.update(t);
 
   const npcs = npcsList();
+  // the park's grass parts around whoever walks through it
+  park.update(dt, t, player ? [player, ...npcs.filter((n) => n.standing)] : npcs);
   if (player) player.update(dt, npcs.filter((n) => !n.ch.lie && n.ch.root.position.y > -0.2));
   interact.update(dt);
   chat.update();

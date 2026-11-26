@@ -9,7 +9,7 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const has = (t, re) => re.test(t);
 
 // ---------- who is who ----------
-const STAFF = /room service|receptionist|concierge|security|bellboy|waiter|waitress|buffet|chef|housekeeping|lifeguard|bartender|dancer|server|patrol/;
+const STAFF = /room service|receptionist|concierge|security|bellboy|waiter|waitress|buffet|chef|housekeeping|lifeguard|bartender|dancer|server|patrol|gardener/;
 const SERVES = /room service|waiter|waitress|buffet|chef|bartender|server|concierge|receptionist/;
 const HOME = ['Goa', 'Kochi in Kerala', 'Mumbai', 'Pune', 'Kolkata', 'Chennai', 'Jaipur', 'Lucknow', 'Hyderabad', 'Mysuru', 'Bhopal', 'Mangaluru', 'Indore', 'Nagpur'];
 function hometown(npc) {
@@ -29,6 +29,7 @@ const PLACES = [
   { id: 'pool', re: /\bpool\b|swim/, name: 'the infinity pool', how: 'Walk straight through the lobby and out of the back doors. The pool is right there.', escort: 'pool' },
   { id: 'poolbar', re: /\bbar\b|stage|bollywood night|mocktail/, name: 'the pool bar', how: 'The pool bar is on the right side of the pool deck, under the thatched roof. The dance stage is next to it.' },
   { id: 'beach', re: /beach|\bsea\b|ocean|shore|sunset/, name: 'Azure Beach', how: 'Go past the pool and keep walking to the back. The beach is behind the pool deck.' },
+  { id: 'park', re: /\bpark\b|garden|cherry|blossom|sakura|bluebell|vortex|meadow|\bswing\b|picnic|bench/, name: 'Azure Gardens', how: 'Azure Gardens is the little park on the west side of the entrance plaza. Walk out of the main doors, turn right past the fountain and go through the arch in the hedge.', escort: 'park' },
   { id: 'lobby', re: /lobby|reception|front desk|check.?in desk|concierge/, name: 'the reception lobby', how: 'Reception is in the middle of the building, straight in from the main glass doors.' },
   { id: 'plaza', re: /entrance|\bexit\b|fountain|main door|way out/, name: 'the entrance plaza', how: 'The main entrance is at the front, past reception. You will see the fountain outside.' },
   { id: 'street', re: /street|road|outside|bus|auto/, name: 'Ocean Drive', how: 'Ocean Drive is the street in front of the resort, past the fountain.' },
@@ -88,6 +89,7 @@ function aboutMe(npc) {
     bartender: 'I make the best mocktails in Goa, if I say so myself.',
     dancer: 'I dance at the pool stage every evening. Bollywood, of course!',
     'pool server': 'I bring drinks to the guests on the loungers.',
+    gardener: 'I look after Azure Gardens: the cherry trees, the bluebells and the voxel beds. Come back at night, the bluebells glow!',
   };
   const k = Object.keys(jobs).find((j) => r.includes(j));
   const job = k ? jobs[k] : /guest|diner|room/.test(r) ? 'I\'m on holiday here, just relaxing.' : 'I\'m just passing by, enjoying the day.';

@@ -15,7 +15,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { library, LOD } from './loader.js';
 
-export const STAFF_ROLE = /receptionist|concierge|security|bellboy|waiter|waitress|buffet|chef|housekeeping|room service|lifeguard|bartender|pool server|patrol/i;
+export const STAFF_ROLE = /receptionist|concierge|security|bellboy|waiter|waitress|buffet|chef|housekeeping|room service|lifeguard|bartender|pool server|patrol|gardener/i;
 /** The staff uniform: teal kurta and cream pyjama, teal saree with a gold border and blouse. */
 export const UNIFORM = { m: { main: 0x0f5c61, bottom: 0xefe7d6 }, f: { main: 0x0f5c61, border: 0xc9a13b, blouse: 0xc9a13b } };
 

@@ -361,7 +361,7 @@ export function createCast(scene, anchors, profile, hud, people = []) {
     const want = /receptionist|waitress|buffet|housekeeping/i.test(role) ? 'saree' : WEAR[of.style] || 'saree';
     return base[want] || base.saree || base.suit || null;
   };
-  const STAFF = /receptionist|concierge|security|bellboy|waiter|waitress|buffet|chef|housekeeping|room service|lifeguard|bartender|pool server|patrol/i;
+  const STAFF = /receptionist|concierge|security|bellboy|waiter|waitress|buffet|chef|housekeeping|room service|lifeguard|bartender|pool server|patrol|gardener/i;
   let zoneOf = '', name = '';
   const P = (nm, role, outfit, extra = {}) => { name = nm; zoneOf = extra.zone || ''; return { name: nm, role, outfit, model: real.get(nm) || bodyFor(role, outfit), ...extra }; };
 
@@ -591,6 +591,38 @@ export function createCast(scene, anchors, profile, hud, people = []) {
       { wait: [3, 6], pose: 'look', activity: 'Checking the pool deck' },
       { path: [[-37.4, -22], [-37.4, 26]], activity: 'Patrolling the west garden' },
       { wait: [3, 6], pose: 'look', activity: 'Watching the street' },
+    ]);
+  }
+
+  // ===================== AZURE GARDENS (the park) =====================
+  const pk = anchors.park;
+  if (pk) {
+    const parkLines = ['The cherry blossoms are beautiful today.', 'Come back after dark, the bluebells glow!', 'I could watch the Vortex all evening.'];
+    add(new Seated(scene, 'xbot', P('Meenakshi', 'Guest', D.saree({ main: 0x0b6e4f, blouse: 0xf4d35e, sindoor: true, skin: 'medium' }), { zone: 'park', lines: parkLines }), pk.circleSeats[2], ['talk', 'look', 'none']));
+    add(new Seated(scene, 'xbot', P('Arvind', 'Visitor', D.kurta({ main: 0xf1ead8, bottom: 0xf1ead8, grey: true, mustache: true, skin: 'wheat' }), { zone: 'park', lines: ['I walk here every morning. Good for the knees!', 'In my village we had a tree just like that one.'] }), pk.circleSeats[3], ['phone', 'look', 'none']));
+    add(new Seated(scene, 'xbot', P('Ira', 'Guest', D.salwar({ main: 0xf48fb1, bottom: 0xffffff, dupatta: 0xffffff, skin: 'fair' }), { zone: 'park', lines: ['Shh, I\'m at the best part of my book.', 'The petals keep landing on my pages!'], labels: { phone: 'Reading under the cherry blossoms', look: 'Watching the petals fall', none: 'Relaxing' } }), pk.sakuraSeats[0], ['phone', 'phone', 'look']));
+    if (full) {
+      // a couple strolling round the meadow
+      const loopRoute = [pk.loop];
+      const farhan = add(new NPC(scene, 'xbot', P('Farhan', 'Guest', D.kurta({ main: 0x37474f, skin: 'medium', beard: true }), { zone: 'park', speed: 1.05, lines: ['Lovely little park, isn\'t it?', 'We come here after dinner.'] })));
+      const zoya = add(new NPC(scene, 'xbot', P('Zoya', 'Guest', D.salwar({ main: 0x26a69a, bottom: 0xfff3e0, dupatta: 0xffcc80, skin: 'wheat' }), { zone: 'park', speed: 1.05, lines: ['Have you seen the swing under the big tree?', 'The fireflies come out at night!'] })));
+      zoya.activityWalk = farhan.activityWalk = 'Strolling round the meadow';
+      farhan.ch.root.position.set(pk.loop[0][0], 0, pk.loop[0][1]); farhan.script = walkerScript(farhan, loopRoute, { pauseChance: 0.25 });
+      zoya.ch.root.position.set(pk.loop[0][0] - 0.9, 0, pk.loop[0][1] + 0.4); zoya.script = walkerScript(zoya, loopRoute, { pauseChance: 0.25 });
+    }
+    // Gopal the gardener tends the beds
+    const gopal = add(new NPC(scene, 'xbot', P('Gopal', 'Gardener', D.kurta({ main: 0x6b8e23, mustache: true, skin: 'dusky' }), { zone: 'park', speed: 1.0, lines: ['Mind the bluebells, please!', 'The cherry trees bloom all year here. Don\'t ask me how!', 'Fresh flowers in the voxel beds this week.'] })));
+    const [b1, b2, b3] = pk.beds, [v1] = pk.voxel;
+    gopal.ch.root.position.set(b1[0], 0, b1[1] + 1);
+    gopal.script = new Script(gopal, [
+      { path: [[b1[0], b1[1]]], activity: 'Walking to the bluebells' },
+      { wait: [6, 10], face: [b1[2], b1[3]], pose: 'stir', activity: 'Watering the bluebells' },
+      { path: [[b2[0], b2[1]]], activity: 'Walking to the next bed' },
+      { wait: [5, 9], face: [b2[2], b2[3]], pose: 'stir', activity: 'Weeding the bluebells' },
+      { path: [v1], activity: 'Walking to the voxel garden' },
+      { wait: [6, 10], face: [v1[0] - 2.5, v1[1]], pose: 'look', activity: 'Checking the voxel flowers' },
+      { path: [[b3[0], b3[1]]], activity: 'Walking to the bluebells' },
+      { wait: [5, 8], face: [b3[2], b3[3]], pose: 'stir', activity: 'Watering the bluebells' },
     ]);
   }
 

@@ -110,11 +110,17 @@ export function createHUD() {
   // ---------- minimap ----------
   const cv = $('minimap'), g = cv.getContext('2d');
   const W = cv.width, H = cv.height;
-  const X0 = -46, X1 = 46, Z0 = -76, Z1 = 54;          // world window (north up)
+  // world window (north up): the resort, or slid west when you are in Azure Gardens
+  const WINDOWS = { resort: [-46, 46], park: [-86, 6] };
+  let X0 = -46, X1 = 46;
+  const Z0 = -76, Z1 = 54;
   const sx = (x) => (x - X0) / (X1 - X0) * W, sz = (z) => (z - Z0) / (Z1 - Z0) * H;
+  const bases = {};
   let base = null;
-  function drawBase() {
+  function drawBase(win = 'resort') {
+    [X0, X1] = WINDOWS[win];
     base = document.createElement('canvas'); base.width = W; base.height = H;
+    bases[win] = base;
     const b = base.getContext('2d');
     b.fillStyle = '#21452f'; b.fillRect(0, 0, W, H);
     b.fillStyle = '#e5d3a3'; b.fillRect(0, sz(-72.7), W, sz(-62) - sz(-72.7));
@@ -140,10 +146,22 @@ export function createHUD() {
       b.fillRect(sx(c.minX), sz(c.minZ), Math.max(1.5, sx(c.maxX) - sx(c.minX)), Math.max(1.5, sz(c.maxZ) - sz(c.minZ)));
     }
     b.font = '600 15px Manrope, sans-serif'; b.fillStyle = 'rgba(255,255,255,0.85)'; b.textAlign = 'center';
-    for (const [t, x, z] of [['Café', -21, 0], ['Lobby', 0, 1], ['Rooms', 23, 11], ['Pool', 0, -38], ['Bar', 25, -30], ['Beach', 0, -66], ['Street', 20, 43]]) b.fillText(t, sx(x), sz(z) + 5);
+    // Azure Gardens: paths and the circle
+    b.strokeStyle = 'rgba(216,204,180,0.9)'; b.lineWidth = 3;
+    b.beginPath(); b.ellipse(sx(-60), sz(6.5), (sx(-48.5) - sx(-71.5)) / 2, (sz(22.5) - sz(-10)) / 2, 0, 0, Math.PI * 2); b.stroke();
+    b.beginPath(); b.moveTo(sx(-41), sz(25.5)); b.lineTo(sx(-53.5), sz(17)); b.lineTo(sx(-60), sz(7)); b.moveTo(sx(-59), sz(33.5)); b.lineTo(sx(-60), sz(7)); b.stroke();
+    b.fillStyle = '#d8ccb4'; b.beginPath(); b.arc(sx(-60), sz(7), sx(-53.6) - sx(-60), 0, Math.PI * 2); b.fill();
+    b.fillStyle = '#4fd1c5'; b.beginPath(); b.arc(sx(-60), sz(7), 4, 0, Math.PI * 2); b.fill();
+    b.fillStyle = '#f4a7c4'; for (const [x, z] of [[-64.2, -13.4], [-55.6, -14.6], [-60.4, -16.6]]) { b.beginPath(); b.arc(sx(x), sz(z), 7, 0, Math.PI * 2); b.fill(); }
+    b.fillStyle = '#6a7ae8'; for (const [x, z] of [[-46.2, -11], [-49.5, -16.2], [-45.4, 2.2], [-65.2, 15.6]]) { b.beginPath(); b.arc(sx(x), sz(z), 5, 0, Math.PI * 2); b.fill(); }
+    b.fillStyle = 'rgba(255,255,255,0.85)';
+    for (const [t, x, z] of [['Café', -21, 0], ['Lobby', 0, 1], ['Rooms', 23, 11], ['Pool', 0, -38], ['Bar', 25, -30], ['Beach', 0, -66], ['Street', 20, 43], ['Gardens', -60, 28]]) b.fillText(t, sx(x), sz(z) + 5);
   }
   api.drawMap = (player, npcs) => {
-    if (!base) drawBase();
+    const win = player && player.x < -41.5 ? 'park' : 'resort';
+    [X0, X1] = WINDOWS[win];
+    base = bases[win];
+    if (!base) drawBase(win);
     g.drawImage(base, 0, 0);
     for (const n of npcs) {
       g.fillStyle = n.core ? '#e3b866' : 'rgba(243,230,207,0.75)';

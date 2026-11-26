@@ -25,6 +25,7 @@ export const CONFIG = {
   // Named areas: used for the "You are in…" label, the minimap and quick travel.
   zones: [
     { id: 'street',    name: 'Ocean Drive',           desc: 'The street outside. Traffic, pedestrians and the resort entrance.', rect: [-90, 34, 90, 60], color: '#5b6670', spawn: [0, 33.5, Math.PI] },
+    { id: 'park',      name: 'Azure Gardens',         desc: 'A small park beside the plaza: cherry blossoms, bluebells that glow at night, a meadow in the wind and the Vortex light sculpture. Sit on any bench (press E).', rect: [-80, -19, -41, 33.5], color: '#7fb069', spawn: [-46, 25.4, -Math.PI / 2] },
     { id: 'plaza',     name: 'Entrance Plaza',        desc: 'Fountain, palms and the main glass doors. Security stands at the door.', rect: [-40, 20, 40, 34], color: '#c9b48f', spawn: [0, 26, Math.PI] },
     { id: 'lobby',     name: 'Reception Lobby',       desc: 'Check in with Priya at the front desk. Walk up to her and press E to be escorted anywhere.', rect: [-10, -20, 10, 20], color: '#e6d7bd', spawn: [0, 4, Math.PI] },
     { id: 'kitchen',   name: 'Kitchen',               desc: 'Chef Rajesh runs the line. Waiters collect plates at the pass window.', rect: [-36, -20, -28, -4], color: '#b9c2c6', spawn: [-31.5, -8, Math.PI] },
@@ -35,8 +36,8 @@ export const CONFIG = {
     { id: 'beach',     name: 'Azure Beach',           desc: 'The private beach. Watch the boats on the bay.', rect: [-90, -95, 90, -60], color: '#e8d6a8', spawn: [0, -64, Math.PI] },
   ],
 
-  // Quick-travel buttons (1–8 on the keyboard)
-  travel: ['plaza', 'lobby', 'cafe', 'kitchen', 'rooms', 'pool', 'poolbar', 'beach'],
+  // Quick-travel buttons (1–9 on the keyboard)
+  travel: ['plaza', 'lobby', 'cafe', 'kitchen', 'rooms', 'pool', 'poolbar', 'beach', 'park'],
 
   // Real 3D people (optional). Drop a rigged .glb into assets/people/ with the file name
   // below and the listed cast members use it instead of the generated character; the
@@ -91,6 +92,7 @@ export const CONFIG = {
   escort: [
     { id: 'cafe',  label: 'Café Azure',    side: -1, path: [[-5, -3], [-8.5, 0], [-16, 0], [-20, 2.6]],  arrive: 'Here is Café Azure. The buffet is on the far wall. Enjoy your meal!' },
     { id: 'pool',  label: 'Infinity Pool', side: -1, path: [[-7.6, -9], [-7.6, -17], [-7, -22], [-4, -27]], arrive: 'Welcome to the pool deck! Towels are on the shelf to your left, and the bar is on your right.' },
+    { id: 'park',  label: 'Azure Gardens', side: 1, path: [[2, -1], [2, 12], [0.8, 19], [0.8, 22.4], [-8, 24.6], [-22, 25.4], [-36, 25.6], [-41.6, 25.5], [-47, 25]], arrive: 'Welcome to Azure Gardens! The cherry trees are on the far side, and the bluebells glow after dark.' },
     { id: 'room',  label: 'Room 104',      side: 1,  path: [[5, -3], [8, 0], [14.3, 0], [14.3, 3.6]],   arrive: 'This is Room 104. Your key card is on the desk. Have a lovely stay!' },
   ],
 
