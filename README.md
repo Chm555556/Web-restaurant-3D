@@ -17,6 +17,7 @@
   <a href="#-from-real-places-to-the-resort">Inspiration</a> ·
   <a href="#-meet-the-people">The people</a> ·
   <a href="#-everything-is-usable">What you can do</a> ·
+  <a href="#azure-gardens-the-park">The park</a> ·
   <a href="#-talk-to-anyone">Chat</a> ·
   <a href="#-controls">Controls</a> ·
   <a href="#-how-it-works">How it works</a> ·
@@ -31,20 +32,21 @@ the street, pass the fountain and the Sikh security guard, check in with Priya a
 then explore Café Azure, the kitchen, six guest rooms, the infinity pool, the pool bar and
 the beach.
 
-About fifty Indian staff and guests in traditional dress are living their day around you.
-You can **type to any of them in English**, sit on any free chair, order food, lie on a bed,
-switch on the TV or use a laptop. It is plain JavaScript and Three.js, with no build step and
-no backend.
+Fifty-eight real 3D Indian people are living their day around you: staff in the resort's
+teal uniform, and guests in sarees, salwar suits, kurtas and casual wear. Each has their own
+face, colours and height. You can **type to any of them in English**, sit on any free chair,
+order food, lie on a bed, switch on the TV, use a laptop, or relax in Azure Gardens, the
+park next door. It is plain JavaScript and Three.js, with no build step and no backend.
 
 <p align="center">
-  <img src="docs/media/walk.gif" alt="Walking through the entrance plaza toward the resort" width="720">
-  <br><sub>Walking into the entrance plaza, with the follow camera, minimap and quick-travel panel.</sub>
+  <img src="docs/media/walk.gif" alt="Aditi walking through the entrance plaza toward the resort, past Harpreet" width="720">
+  <br><sub>Aditi walks in from Ocean Drive past the fountain and Harpreet, with the follow camera, minimap and quick-travel panel.</sub>
 </p>
 
 <table align="center">
   <tr>
-    <td align="center" width="25%"><h2>51</h2><sub>people with their own routines</sub></td>
-    <td align="center" width="25%"><h2>108</h2><sub>chairs, beds, TVs and laptops you can use</sub></td>
+    <td align="center" width="25%"><h2>58</h2><sub>real 3D people with their own routines</sub></td>
+    <td align="center" width="25%"><h2>128</h2><sub>chairs, benches, beds, TVs and laptops you can use</sub></td>
     <td align="center" width="25%"><h2>10</h2><sub>zones, from the street and the park to the beach</sub></td>
     <td align="center" width="25%"><h2>0</h2><sub>build steps, servers or API keys</sub></td>
   </tr>
@@ -57,9 +59,10 @@ no backend.
 <table>
   <tr>
     <td width="33%" valign="top">
-      <h4>Traditional Indian cast</h4>
-      Everyone is generated in code in a warm animated-film style: sarees, lehengas,
-      anarkalis, sherwanis, dhoti-kurta, turbans, jhumkas and gajra.
+      <h4>Real 3D Indian cast</h4>
+      Sculpted, rigged people with five real men's faces and six women's faces. Sarees, salwar
+      suits, kurtas, polos and printed shirts, each in their own colours, plus bindis, earrings,
+      turbans and grey hair. No two look alike.
     </td>
     <td width="33%" valign="top">
       <h4>Type to chat</h4>
@@ -76,17 +79,17 @@ no backend.
     <td valign="top">
       <h4>A living scene</h4>
       Waiters carry trays, the chef cooks, housekeeping makes beds, swimmers do laps, a dancer
-      performs on the pool stage, and traffic and pedestrians pass on Ocean Drive.
+      performs on the pool stage, and Priya walks you to the café, the pool, your room or the park.
     </td>
     <td valign="top">
-      <h4>A receptionist state machine</h4>
-      Priya greets you, stands up and walks you to the café, the pool or Room 104,
-      waits if you fall behind, then returns to her desk.
+      <h4>Azure Gardens</h4>
+      A park beside the plaza: grass that parts as you walk through it, cherry trees shedding
+      petals, bluebells that glow at night, a voxel garden and the Vortex light sculpture.
     </td>
     <td valign="top">
       <h4>Runs anywhere</h4>
-      Quality profiles with device detection, instancing, frustum culling and a pause when the
-      tab is hidden. An on-screen joystick appears on phones.
+      Quality profiles with device detection, instancing, low-detail models for distant people,
+      culling and a pause when the tab is hidden. An on-screen joystick appears on phones.
     </td>
   </tr>
 </table>
@@ -146,27 +149,31 @@ VS Code *Live Server* extension also work.
 ## ✦ Meet the people
 
 <p align="center">
-  <img src="docs/media/cast.jpg" alt="Eight members of the cast in traditional dress" width="100%">
+  <img src="docs/media/cast.jpg" alt="Eight members of the cast: Priya, Harpreet, Rajesh, Kavya, Aisha, Lakshmi, Ramesh and Gopal" width="100%">
 </p>
 
 <p align="center">
-  <img src="docs/media/costumes.jpg" alt="Saree, sherwani, lehenga choli and dhoti kurta, full length" width="100%">
+  <img src="docs/media/costumes.jpg" alt="Full-length outfits: Aditi's saree, a saree, a salwar suit, a village saree, a kurta-pyjama, a polo, a printed shirt and a T-shirt" width="100%">
 </p>
 
-Every person is built at load time by [`characters/indian.js`](characters/indian.js) as **one
-smooth skinned mesh** on the X-Bot skeleton. Walking, sitting, waving and dancing therefore
-bend the saree pleats, the kurta hem and the braid along with the body.
+Everyone is a real, sculpted 3D model. They are built from a few rigged bodies, then each
+person is made their own: a different real face, face shape, skin tone, hair, height and
+colours ([`characters/looks.js`](characters/looks.js)).
 
 | | Women | Men |
 |---|---|---|
-| **Face** | Big brown eyes with kajal and a winged liner, arched brows, rosy cheeks, soft smile | Big brown eyes, thick brows, moustache (classic or royal), optional beard |
-| **Hair** | Centre parting with sindoor, bun with a jasmine gajra, long braid with a paranda, open hair | Side-parted quiff, grey for elders, Sikh pagri or Rajasthani safa |
-| **Dress** | Silk saree with front pleats, zari border and pallu · lehenga choli · anarkali · salwar kameez with dupatta | Kurta pyjama with side slits · Nehru jacket · sherwani · dhoti-kurta with shawl · chef's whites · security uniform |
-| **Jewellery** | Jhumkas, necklace and pendant, mangalsutra, maang tikka, nath, bangles, payal, mehndi | Kada, rudraksha mala, tilak |
-| **Footwear** | Juttis | Mojaris (pointed tips) |
+| **Bodies** | A draped saree, a salwar suit (kameez, churidar and dupatta) and a village-style saree | A kurta-pyjama, a polo with trousers, a printed shirt with jeans, and a T-shirt |
+| **Faces** | Six real faces, each reshaped a little (width, jaw, length, depth) | Five real faces, reshaped the same way |
+| **Colours** | The saree print turned to each woman's colour; kameez in plain, bandhani, block-print or check | Kurtas plain, striped, checked or dotted; shirts and trousers in their own colours |
+| **Details** | Bindi, nose ring, earrings, gajra flowers, glasses, lipstick, grey hair for elders | Beard or moustache, glasses, tilak, Harpreet's turban, the chefs' caps, grey hair for elders |
+| **Staff** | The resort saree (teal with an orange print) | A teal kurta with a cream pyjama |
 
-Women share the skeleton scaled to 1.65 m. Identical outfits share geometry, and each person
-takes two draw calls: one for cloth and skin, one for gold.
+**You** play as Rahul (the kurta model's own face) or Aditi (the *Free fire character in
+Indian look* exactly as made: pink saree, purple pallu and yellow blouse). Walking,
+running, sitting, lying, swimming and every gesture are retargeted onto each body. Women
+in a saree take shorter, quicker steps, and the saree hangs as one cloth instead of
+splitting into trouser legs. The models, their authors and licences are listed in
+[Real 3D people](#-real-3d-people).
 
 ---
 
@@ -175,7 +182,7 @@ takes two draw calls: one for cloth and skin, one for gold.
 <table>
   <tr>
     <td width="50%"><img src="docs/media/cafe.jpg" alt="Seated at a café table with the activity bar"><br><b>Café Azure.</b> Sit at any free table and press <b>Order food</b>. Sameer collects it at the kitchen pass, carries it over on a tray and serves it at your table.</td>
-    <td width="50%"><img src="docs/media/room.jpg" alt="Lying in bed in Room 104 with the cricket on TV"><br><b>Guest rooms.</b> Sit on the bed, lie down, sleep until morning, switch the TV on and flip channels.</td>
+    <td width="50%"><img src="docs/media/room.jpg" alt="Lying in bed in Room 104 with the cricket on TV"><br><b>Guest rooms.</b> Sit on the bed, lie down (here with the cricket on), sleep until morning, switch the TV on and flip channels.</td>
   </tr>
   <tr>
     <td><img src="docs/media/laptop.jpg" alt="Room laptop showing room service"><br><b>Laptops and the lobby computer.</b> Resort guide with travel, room service, weather and events, live cricket score, and notes saved in the browser.</td>
@@ -187,7 +194,7 @@ takes two draw calls: one for cloth and skin, one for gold.
 |---|---|
 | Café (48 seats) | Order from the menu (the waiter brings it), eat, chat with the diners next to you |
 | Pool bar (5 stools) | Order a drink (the bartender mixes and serves it), sip it |
-| Lobby sofas, plaza and pool benches | Sit, use your phone, wave |
+| Lobby sofas, plaza and pool benches, the park's ten benches | Sit, use your phone, wave |
 | Guest rooms 101–106 | Doors you open and close, bed (sit, lie down, sleep), armchair, desk with laptop, TV with 5 channels, room service delivered to the room |
 | Sun loungers (14) | Lie down, order a tender coconut (the pool server brings it) |
 | Lobby | Guest computer, menu stand, escort by the receptionist |
@@ -251,7 +258,7 @@ Press <kbd>G</kbd> (or **Gestures**) for 🙏 namaste, 🤝 handshake, ✋ high 
 🙇 bow, 👏 clap, 🙌 cheer, 💃 dance, 😄 laugh, nod, shake head and 🤔 think. The person
 you face answers: a namaste for a namaste, a wave back, a laugh, sometimes a dance.
 Handshakes and high fives bring you to arm's length, and two-bone arm IK sends both right
-hands to the same point, so the hands really meet. This works with seated people too. In
+hands toward the same point. This works with seated people too. In
 chat, typing *shake hands*, *high five*, *let's dance*, *namaste* or *tell me a joke* plays
 the matching move.
 
@@ -339,11 +346,12 @@ On phones and tablets, an on-screen joystick and an **E** button appear.
 ```mermaid
 flowchart LR
     subgraph Load
-        L[loader.js<br/>X-Bot skeleton + clips<br/>samba retargeted] --> I[indian.js<br/>generate each person<br/>one skinned mesh]
+        L[loader.js<br/>real 3D people + X-Bot clips<br/>retargeted by direction] --> I[looks.js<br/>faces · colours · height<br/>details · low detail]
     end
     subgraph World
         A[architecture.js] --- F[furniture.js<br/>seats · beds · TVs · laptops]
         F --- N[neighbourhood.js<br/>street · city · beach]
+        N --- PK[park.js<br/>Azure Gardens]
         E[environment.js<br/>sun · sky · day/night]
     end
     subgraph People
@@ -363,22 +371,26 @@ flowchart LR
 ```
 
 <details>
-<summary><b>Characters: from a skeleton to a person in a saree</b></summary>
+<summary><b>Characters: from a downloaded model to a person of their own</b></summary>
 
 <br>
 
-1. **Skeleton.** `loader.js` loads the X-Bot glTF with its idle, walk and run clips.
-   Michelle's samba is retargeted onto the same skeleton for the dancer.
-2. **Body frame.** The bind pose is measured, and the hips define a local frame.
-3. **Geometry.** A small builder emits rings, ellipsoids, tubes, tori and ribbons with
-   **vertex colours and skin weights**: the torso profile, limbs, hands, sculpted head, eyes,
-   lids, kajal, brows, nose, lips, hair caps, buns, braids, skirts with pleats and borders,
-   the pallu and dupatta drapes, and jewellery.
-4. **Skinning.** Skirts are weighted from the hips down to each thigh and shin, so they swing
-   when walking and fold when sitting. Drapes follow the spine and shoulders, and braids
-   follow the neck and back.
-5. **Sharing.** Geometry is cached per outfit, and two shared materials (matte and gold) give
-   each person two draw calls.
+1. **Models.** `loader.js` loads the rigged people listed in `CONFIG.people`: the bodies
+   (kurta, polo, shirt, T-shirt, saree, salwar suit), the models that lend only their faces,
+   and a low-detail copy of each for people far away.
+2. **Retargeting by direction.** The X-Bot's idle, walk, run and dance clips are copied onto
+   every skeleton. Each bone is first turned to point the way the X-Bot's bone points, so it
+   works even for a model rigged with its arms down. The hips keep the clip's bounce and
+   sway, scaled to the model's leg length, and the step rate follows the stride so feet
+   don't slide.
+3. **A person of their own.** `looks.js` swaps in one of the real faces (the models of one
+   family share a skeleton), reshapes the face, and recolours the clothes in the shader so
+   the print and folds stay. It also sets skin tone, hair colour and lipstick, paints a
+   beard or moustache, adds jewellery, glasses or a turban, and varies height and build.
+4. **Cloth.** A saree's leg weights are shared between both legs so it hangs like cloth. A
+   dupatta is built to fit each suit-wearer's body and skinned to the spine and shoulders.
+5. **Detail by distance.** Close up you see the full model. Far away, people switch to the
+   low-detail copy and their eyes and jewellery are hidden.
 
 </details>
 
@@ -402,7 +414,8 @@ flowchart LR
   WAITING/ARRIVED → RETURNING → SITTING`.
 - **Procedural poses** in `character.js` layer sitting, eating, typing, waving, talking,
   carrying, stirring and swimming on top of the animation clips.
-- **Culling.** People off-screen or far away are hidden and animate at a quarter or half rate.
+- **Culling.** People off-screen or far away are hidden, animate at a quarter or half rate
+  and switch to low-detail models.
   Static geometry is merged per material, and repeated props are instanced.
 
 </details>
@@ -415,8 +428,10 @@ flowchart LR
 | Balanced | 1024 px | up to 1.5× | full | most desktops |
 | High | 2048 px, soft | up to 2× | full | discrete GPUs |
 
-Measured on Balanced at the opening view: about **280 draw calls** and **840k triangles**,
-including the shadow pass. Models and textures total **3.5 MB**, and Three.js adds **0.8 MB**.
+Measured on Balanced at the opening view: about **540 draw calls** and **1.6 million
+triangles**, including the shadow pass and the park's meadow. The real 3D people are
+**43 MB** (34 MB of models plus 8 MB of low-detail copies). The X-Bot clips, props and
+images add **5.6 MB**, and Three.js adds **0.8 MB**.
 
 ---
 
@@ -427,12 +442,13 @@ including the shadow pass. Models and textures total **3.5 MB**, and Three.js ad
 ├── main.js                 Scene, renderer, render loop, input, wiring
 ├── config.js               Names, zones, escort routes, menu, resort facts, quality profiles
 ├── characters/
-│   ├── indian.js           Generates every person: body, face, hair, dress, jewellery
+│   ├── looks.js            Makes each real person their own: face, colours, height, details
+│   ├── indian.js           Fallback: generates a person in code if a model is missing
 │   ├── dialogue.js         Offline chat: intents and in-character replies
 │   ├── character.js        One animated person: locomotion blend tree, poses, IK gestures, look-at
 │   ├── npc.js              The cast, routines, deliveries, gesture reactions, receptionist
 │   ├── controller.js       The player: acceleration, collisions, animated sit / lie / stand
-│   └── loader.js           glTF loading, retargeting, measurements
+│   └── loader.js           glTF loading, retargeting by direction, low-detail copies
 ├── scene/
 │   ├── architecture.js     Building shell, walls, pool, signs, doors (sliding + real swing doors)
 │   ├── furniture.js        Furniture, TVs and channels, laptops, guest computer, anchors
@@ -455,7 +471,8 @@ including the shadow pass. Models and textures total **3.5 MB**, and Three.js ad
 │   └── chat.js             Chat panel
 ├── assets/models/          X-Bot (skeleton + clips), Michelle (samba clip)
 ├── assets/images/          Photos and paintings: start screen, lobby and room art
-├── assets/people/          Optional real 3D people (see "Real 3D people")
+├── assets/people/          The real 3D people and their low-detail copies (lod/)
+├── assets/props/           The thali served in the café
 ├── tools/import-model.sh   Convert, shrink and install a downloaded model
 ├── vendor/                 Three.js r170 and the addons used
 └── _headers                Cache headers for Netlify / Cloudflare Pages
@@ -463,11 +480,11 @@ including the shadow pass. Models and textures total **3.5 MB**, and Three.js ad
 
 ---
 
-## ✦ Real 3D people (optional)
+## ✦ Real 3D people
 
-You can swap the generated characters for downloaded, sculpted 3D people. They get the same
-walk, run, sit, lie, swim, door and gesture behaviour as everyone else, because the clips
-are retargeted onto their skeleton when the page loads.
+Every person in the resort is a downloaded, sculpted 3D model from Sketchfab. They all get
+the same walk, run, sit, lie, swim, door and gesture behaviour, because the clips are
+retargeted onto their skeleton when the page loads. To add or replace a model:
 
 1. **Download** the model from Sketchfab: *Download 3D Model → glTF (.glb)*. You need a
    free Sketchfab account.
@@ -490,7 +507,8 @@ are retargeted onto their skeleton when the page loads.
    - `use: [...]` gives the model to the named cast members only.
    - `player: 'm'` or `'f'` makes it your own character.
 
-   A model that isn't installed falls back to the generated character.
+   If a model isn't installed, that person falls back to a character generated in code
+   (`characters/indian.js`).
 
 ### Everyone is their own person
 
@@ -572,7 +590,9 @@ Almost everything a non-programmer might change lives in [`config.js`](config.js
 | Walking speed, camera, graphics profiles | `CONFIG.player`, `CONFIG.camera`, `CONFIG.quality` |
 
 People, outfits and routines are in [`characters/npc.js`](characters/npc.js). An outfit is
-one line:
+one line. Its style picks the body (`saree` and `lehenga` → saree, `salwar` and `anarkali`
+→ salwar suit, men → kurta or casual wear), and its colours, skin, beard and jewellery
+shape that person's look:
 
 ```js
 D.saree({ main: 0x8b1538, blouse: 0xe3b33f, hair: 'bun', sindoor: true, skin: 'wheat' })
@@ -608,7 +628,8 @@ always get the latest version. `azure-bay.html` is a variant for hosts that cann
 - Beards and moustaches are painted on the skin, not modelled hair.
 - Chat is rule-based and offline. Unusual questions get a polite *"I'm not sure, try asking
   about…"*.
-- When someone lies down in a wide lehenga or anarkali, the hem lifts a little.
+- The page downloads about 50 MB, mostly the 3D people. Python's simple web server can
+  drop a large file now and then; reload if someone looks wrong.
 
 ## ✦ Credits
 
@@ -617,7 +638,8 @@ always get the latest version. `azure-bay.html` is a variant for hosts that cann
   (originally Mixamo), optimised with gltf-transform. *Soldier* and *RobotExpressive* are
   kept in `assets/models/` but are not loaded.
 - The photographs and painted versions in `assets/images/` were provided for this project.
-- Every body, face, costume, building, prop, texture, sign and TV programme is generated in
-  code.
+- The 3D people and the thali are Sketchfab models, credited with their licences in
+  [Real 3D people](#-real-3d-people). Everything else (the buildings, furniture, park, props,
+  textures, signs and TV programmes) is generated in code.
 
 <p align="center"><br><a href="#top">Back to top ↑</a></p>
