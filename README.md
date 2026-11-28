@@ -39,6 +39,13 @@ order food, lie on a bed, switch on the TV, use a laptop, or relax in Azure Gard
 park next door. It is plain JavaScript and Three.js, with no build step and no backend.
 
 <p align="center">
+  <a href="https://fast.wistia.net/embed/iframe/4uilpnhmzg?autoPlay=true" title="Watch the Azure Bay promo video">
+    <img src="docs/media/promo.jpg" alt="Azure Bay promo video: click to watch the one-minute tour" width="720">
+  </a>
+  <br><sub>▶ <b><a href="https://fast.wistia.net/embed/iframe/4uilpnhmzg?autoPlay=true">Watch the one-minute promo video</a></b> (opens and plays straight away).</sub>
+</p>
+
+<p align="center">
   <img src="docs/media/walk.gif" alt="Aditi walking through the entrance plaza toward the resort, past Harpreet" width="720">
   <br><sub>Aditi walks in from Ocean Drive past the fountain and Harpreet, with the follow camera, minimap and quick-travel panel.</sub>
 </p>
@@ -634,6 +641,10 @@ always get the latest version. `azure-bay.html` is a variant for hosts that cann
 ## ✦ Credits
 
 - [Three.js](https://threejs.org) r170 (MIT).
+- [Sketchfab](https://sketchfab.com/): where the 3D people and the thali come from (authors
+  and licences in [Real 3D people](#-real-3d-people)).
+- [Mixamo](https://www.mixamo.com/): auto-rigging for the models that came without a
+  skeleton (Aditi's saree model), and the origin of the X-Bot animation clips.
 - Skeleton and animation clips: *X-Bot* and *Michelle* from the three.js examples
   (originally Mixamo), optimised with gltf-transform. *Soldier* and *RobotExpressive* are
   kept in `assets/models/` but are not loaded.
